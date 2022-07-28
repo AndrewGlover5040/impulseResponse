@@ -29,7 +29,7 @@ predictedPerformance=function(params,training_load,day=length(training_load)){
   return(out)
 }
 
-
+f
 SSE <- function(params,training_load,Performance,day=length(training_load)){
   Pred=predictedPerformance(params,training_load,day)
   #Performance=Performance[1:day-1]
