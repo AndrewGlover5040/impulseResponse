@@ -1,5 +1,5 @@
 #for testing the influence function in clark&skiba fig. 8b.
-use_git()
+
 library(devtools)
 ####!!! check this is outputing the right value !!!####
 #' Influcence Function
@@ -22,7 +22,7 @@ Influence=function(params, startDay, t_p = 0){
   }
   return(out)
 }
-use_git()
+
 #' Title
 #'
 #' @param params A numerical vector of length five. It encodes

@@ -21,7 +21,7 @@ library(ggplot2)
 # params.1=c(262, 0.18, 0.23, 36, 21)
 # Training.1=Athlete.data[[2]]
 # Performance.1=Athlete.data[[3]]
-f
+
 
 #assumes training load has a zero day
 get_performance_matrix <- function(training_load,
