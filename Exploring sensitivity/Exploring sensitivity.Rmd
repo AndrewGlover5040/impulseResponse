@@ -1,0 +1,159 @@
+---
+title: "Exploring sensitivity of Time-varing model"
+output: html_notebook
+---
+testing RLS algorithm 
+
+Packages and such
+```{r}
+library(ggplot2)
+library(devtools)
+library(tibble)
+load_all()
+
+set.seed(100)
+```
+
+Create two different sets of parameters and training loads, and a tibble that
+will be used later. 
+```{r}
+params_1 = c(250,.1,.1,25,15)
+params_2 = c(250,.5,.5,25,1)
+training_load <- c(rep(100,100))
+shortened_training_load <- training_load[1:50]
+first_length <- length(shortened_training_load)
+second_legth <- length(training_load)-length(shortened_training_load)
+actual_param_tib <- tibble(
+  "day" = 1:length(training_load),
+  "p_0" = c(rep(params_1[[1]], first_length),
+            rep(params_2[[1]], second_legth)
+            ),
+  "k_1" = c(rep(params_1[[2]], first_length),
+            rep(params_2[[2]], second_legth)
+            ),
+  
+  "k_2" = c(rep(params_1[[3]], first_length),
+            rep(params_2[[3]], second_legth)
+            ),
+  "tau_1" = c(rep(params_1[[4]], first_length),
+            rep(params_2[[4]], second_legth)
+            ),
+  "tau_2" = c(rep(params_1[[5]], first_length),
+            rep(params_2[[5]], second_legth)
+            )
+)
+
+```
+
+
+Creating a model (with the time invariant model) where the first 50 days use the 
+first set of paramters and the last 50 days use the second set. 
+
+
+```{r}
+non_noisy_performance_1 <- predictedPerformance(params_1, shortened_training_load)
+non_noisy_performance_2 <- predictedPerformance(params_2, training_load)
+non_noisy_perf = c(non_noisy_performance_1, non_noisy_performance_2[51:100])
+
+```
+
+Applying noise to this model (with helper function that makes noise)
+```{r}
+noise <- function(x,  sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+
+test_perf = purrr::map_dbl(non_noisy_perf, noise, 5)
+```
+
+
+trying to recover the parameters with the time-varying model
+```{r, echo=FALSE}
+
+lists_to_tibble <- function(list_of_lists){
+  len=length(list_of_lists)
+  list_0 <- c(rep(0,len))
+  out=tibble(
+    "day" = 1:len,
+    "p_0" = list_0,
+    "k_1" = list_0,
+    "k_2" = list_0,
+    "tau_1" = list_0,
+    "tau_2" = list_0
+  )
+  for(i in 1:len){
+    for(j in 2:6){
+     out[i,j] = list_of_lists[[i]][[j-1]] 
+    }
+  }
+  out
+}
+
+prediction_with_alpha <- function(alpha, ...){
+  prediction_non_noisy <- RLS_predicted_performance(
+      training_load,
+      non_noisy_perf,
+      250,
+      alpha = alpha,
+      delta = 1000,
+      c(1,50),
+      1,
+      c(1,50),
+      1
+    )
+  parameter_tibble_pred <- lists_to_tibble(prediction_non_noisy[[2]])
+  plot <- ggplot(parameter_tibble_pred, aes(x = day, y = ...))+
+    geom_line()+
+    geom_line(data = actual_param_tib, color= "red")
+  plot
+}
+
+prediction_with_alpha(.0001, tau_1)
+prediction_with_alpha(.0001, tau_2)
+
+# prediction_non_noisy <- RLS_predicted_performance(
+#       training_load,
+#       non_noisy_perf,
+#       250,
+#       alpha = .0001,
+#       delta =1000,
+#       c(1,50),
+#       1,
+#       c(1,50),
+#       1
+#     )
+# prediction_non_noisy[[2]]
+```
+Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
+Prehaps the matrix of erros is symmetric. Can then reduce the computational load. 
+
+
+
+
+Changing values of alpha effects how the algorithm recovers the parameter.
+In the given value, .00000000000000001, the algorithm can recover the first
+set of parameters in 3 data points, For reasonable values (like one or one or
+two decimal points) the data can recover the first set in 7 data points. However,
+for incredibly small values, the model converges on the wrong values, but more
+values can still recover the origional parameters, just at the slow 7 data point rate
+
+prehaps to predict paramters, we should throw out old data (which does have a recursive algorithm in the
+same book that I have).
+
+graphing results:
+```{r}
+tib_1 = tibble::tibble(
+  day = c(1:50),
+  perf = test_perf
+)
+tib_RLS = tibble::tibble(
+  day = c(1:50),
+  perf = 
+)
+plot <- ggplot(tib_1, aes(x = day, y = perf))+
+  geom_line()
+
+plot
+```
+
+
