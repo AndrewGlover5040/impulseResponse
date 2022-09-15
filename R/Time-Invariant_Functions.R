@@ -81,4 +81,3 @@ optim_par <- function(
   )
   x$par
 }
-
