@@ -23,6 +23,7 @@ training_load <- c(rep(100,100))
 shortened_training_load <- training_load[1:50]
 first_length <- length(shortened_training_load)
 second_legth <- length(training_load)-length(shortened_training_load)
+#to graph actual parameter values against the predicted ones
 actual_param_tib <- tibble(
   "day" = 1:length(training_load),
   "p_0" = c(rep(params_1[[1]], first_length),
@@ -57,18 +58,10 @@ non_noisy_perf = c(non_noisy_performance_1, non_noisy_performance_2[51:100])
 
 ```
 
-Applying noise to this model (with helper function that makes noise)
-```{r}
-noise <- function(x,  sd){
-  x+rnorm(1, mean = 0, sd = sd)
-}
 
-test_perf = purrr::map_dbl(non_noisy_perf, noise, 5)
-```
-
-
-trying to recover the parameters with the time-varying model
-```{r, echo=FALSE}
+Trying to recover the parameters with the time-varying model. Thought it was easier to make a function 
+`prediction_with_alpha(performance, alpha, ...)` that plots the RLS algorithm --  with `alpha=alpha` and `predicted_performance = predicted parameter` -- given in `...`against that acutal paramters. 
+```{r, eval=FALSE}
 
 lists_to_tibble <- function(list_of_lists){
   len=length(list_of_lists)
@@ -89,10 +82,10 @@ lists_to_tibble <- function(list_of_lists){
   out
 }
 
-prediction_with_alpha <- function(alpha, ...){
+prediction_with_alpha <- function(performance, alpha, ...){
   prediction_non_noisy <- RLS_predicted_performance(
       training_load,
-      non_noisy_perf,
+      performance,
       250,
       alpha = alpha,
       delta = 1000,
@@ -108,8 +101,8 @@ prediction_with_alpha <- function(alpha, ...){
   plot
 }
 
-prediction_with_alpha(.0001, tau_1)
-prediction_with_alpha(.0001, tau_2)
+prediction_with_alpha(non_noisy_perf, .0001, tau_1)
+prediction_with_alpha(non_noisy_perf, .0001, tau_2)
 
 # prediction_non_noisy <- RLS_predicted_performance(
 #       training_load,
@@ -124,9 +117,28 @@ prediction_with_alpha(.0001, tau_2)
 #     )
 # prediction_non_noisy[[2]]
 ```
-Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
-Prehaps the matrix of erros is symmetric. Can then reduce the computational load. 
+After some time, `tau_1` and `tau_2` flip between the acutal values. They also
+take a unique value, so they are "trading" in some sense. 
 
+
+Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
+Prehaps the matrix of SSE is symmetric. Can then reduce the computational load. This is true:
+
+```{r, eval=FALSE}
+prediction_non_noisy <- RLS_predicted_performance(
+      training_load,
+      non_noisy_perf,
+      250,
+      alpha = .0001,
+      delta = 1000,
+      c(1,50),
+      1,
+      c(1,50),
+      1
+    
+#This is the matrix for the RLS model SSE on day 5
+(symm_matrix <- as.data.frame(prediction_non_noisy[[4]][5,,]))
+```
 
 
 
@@ -140,20 +152,53 @@ values can still recover the origional parameters, just at the slow 7 data point
 prehaps to predict paramters, we should throw out old data (which does have a recursive algorithm in the
 same book that I have).
 
-graphing results:
-```{r}
-tib_1 = tibble::tibble(
-  day = c(1:50),
-  perf = test_perf
-)
-tib_RLS = tibble::tibble(
-  day = c(1:50),
-  perf = 
-)
-plot <- ggplot(tib_1, aes(x = day, y = perf))+
-  geom_line()
 
-plot
+
+Applying noise to this model (with helper function that makes noise)
+```{r}
+noise <- function(x,  sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+
+noisy_perf = purrr::map_dbl(non_noisy_perf, noise, sd = 1)
 ```
+
+
+The noise function and a check that it works:
+```{r}
+performance_tib = tibble::tibble(
+  day = c(1:100),
+  non_noisy = non_noisy_perf,
+  noisy = noisy_perf 
+)
+ 
+# plot <- ggplot(performance_tib, aes(x = day, y = non_noisy))+
+#   geom_line(color = "red")+
+#   geom_line(aes(y=noisy), color = "blue")
+# plot
+```
+
+
+
+Running RLS algorithm with the noisy performance
+```{r}
+prediction_noisy <- RLS_predicted_performance(
+      training_load,
+      noisy_perf,
+      250,
+      alpha = .0000001,
+      delta = 1000,
+      c(1,50),
+      1,
+      c(1,50),
+      1
+    )
+#prediction_noisy[[2]]
+view(prediction_noisy[[4]][5,,])
+```
+This is giving weird results; the parameters are not being recovered. 
+
+
+
 
 
