@@ -223,7 +223,7 @@ estimate_RLS_parameters <- function(
       )
     )
   }
-  list(best_parameter_list, min_cost_vec)
+  list(best_parameter_list, min_cost_vec, cost_array)
 }
 
 
@@ -276,8 +276,8 @@ numeric_predictedPerformance <- function(
 #'   (See `get_performance_matrix`)
 #'
 #' @return A list containing the predicted performance from the RLS algorithm,
-#'   The list containing the parameters used to calculate the performance, and
-#'   and the marginal SSE.
+#'   The list containing the parameters used to calculate the performance,
+#'   the marginal SSE, and the cost array (for testing).
 #' @export
 #'
 #' @examples fill in later
@@ -306,6 +306,7 @@ RLS_predicted_performance <- function(
   )
   params_RLS <- tmp[[1]]
   SSE_list <- tmp[[2]]
+  cost_array <- tmp[[3]]
 
   # To make the output list of parameters for each of the
   # days when we have parameters
@@ -334,7 +335,7 @@ RLS_predicted_performance <- function(
     training_load
   )
 
-  list(out_list, params_RLS, SSE_list)
+  list(out_list, params_RLS, SSE_list, cost_array)
 }
 
 
