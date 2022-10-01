@@ -9,40 +9,21 @@ Packages and such
 library(ggplot2)
 library(devtools)
 library(tibble)
+set.seed(100) #for consistency in noise function
 load_all()
-
-set.seed(100)
 ```
 
 Create two different sets of parameters and training loads, and a tibble that
 will be used later. 
 ```{r}
-params_1 = c(250,.1,.1,25,15)
-params_2 = c(250,.5,.5,25,1)
-training_load <- c(rep(100,100))
-shortened_training_load <- training_load[1:50]
-first_length <- length(shortened_training_load)
-second_legth <- length(training_load)-length(shortened_training_load)
+params_list_1 = list(c(250,.1,.1,25,15), c(250,.5,.5,25,1))
+training_load_1 <- c(rep(100,100))
+#shortened_training_load <- training_load[1:50]
+# first_length <- length(shortened_training_load)
+# second_legth <- length(training_load)-length(shortened_training_load)
+
 #to graph actual parameter values against the predicted ones
-actual_param_tib <- tibble(
-  "day" = 1:length(training_load),
-  "p_0" = c(rep(params_1[[1]], first_length),
-            rep(params_2[[1]], second_legth)
-            ),
-  "k_1" = c(rep(params_1[[2]], first_length),
-            rep(params_2[[2]], second_legth)
-            ),
-  
-  "k_2" = c(rep(params_1[[3]], first_length),
-            rep(params_2[[3]], second_legth)
-            ),
-  "tau_1" = c(rep(params_1[[4]], first_length),
-            rep(params_2[[4]], second_legth)
-            ),
-  "tau_2" = c(rep(params_1[[5]], first_length),
-            rep(params_2[[5]], second_legth)
-            )
-)
+
 
 ```
 
@@ -52,17 +33,33 @@ first set of paramters and the last 50 days use the second set.
 
 
 ```{r}
-non_noisy_performance_1 <- predictedPerformance(params_1, shortened_training_load)
-non_noisy_performance_2 <- predictedPerformance(params_2, training_load)
-non_noisy_perf = c(non_noisy_performance_1, non_noisy_performance_2[51:100])
+
+varying_performance <- function(params_list,
+                                training_load,
+                                change_date){
+  c(
+    predictedPerformance(params_list[[1]], training_load[1:change_date]),
+    na.omit(predictedPerformance(params_list[[2]], training_load)[change_date+1:length(training_load)])
+  )
+}
+non_noisy_perf_1 <- varying_performance(params_list_1, training_load_1, 50)
+non_noisy_perf_1
+
+# 
+# non_noisy_performance_1 <- predictedPerformance(params_1, shortened_training_load)
+# non_noisy_performance_2 <- predictedPerformance(params_2, training_load)[51:100]
+# non_noisy_performance_2 
+# non_noisy_perf = c(non_noisy_performance_1, non_noisy_performance_2[51:100])
+# non_noisy_perf
+
 
 ```
 
 
 Trying to recover the parameters with the time-varying model. Thought it was easier to make a function 
 `prediction_with_alpha(performance, alpha, ...)` that plots the RLS algorithm --  with `alpha=alpha` and `predicted_performance = predicted parameter` -- given in `...`against that acutal paramters. 
-```{r, eval=FALSE}
-
+```{r, eval = FALSE}
+#transforming the parameter output of RLS function
 lists_to_tibble <- function(list_of_lists){
   len=length(list_of_lists)
   list_0 <- c(rep(0,len))
@@ -82,22 +79,64 @@ lists_to_tibble <- function(list_of_lists){
   out
 }
 
+
+#to be able to plot the actual paramters agains the predicted parameters
+actual_params_to_tib <- function(params_list, 
+                                 training_load, 
+                                 length_first_params, 
+                                 length_second_params = length(training_load)
+){
+  params_1 = params_list[[1]]
+  params_2 = params_list[[2]]
+  first_length = length_first_params 
+  second_length = length_second_params - length_first_params 
+  tibble(
+    "day" = 1:length(training_load),
+    "p_0" = c(rep(params_1[[1]], first_length),
+              rep(params_2[[1]], second_length)
+    ),
+    "k_1" = c(rep(params_1[[2]], first_length),
+              rep(params_2[[2]], second_length)
+    ),
+    
+    "k_2" = c(rep(params_1[[3]], first_length),
+              rep(params_2[[3]], second_length)
+    ),
+    "tau_1" = c(rep(params_1[[4]], first_length),
+                rep(params_2[[4]], second_length)
+    ),
+    "tau_2" = c(rep(params_1[[5]], first_length),
+                rep(params_2[[5]], second_length)
+    )
+  )
+}
+
+#The actually cool function
 prediction_with_alpha <- function(performance, alpha, ...){
   prediction_non_noisy <- RLS_predicted_performance(
-      training_load,
-      performance,
-      250,
-      alpha = alpha,
-      delta = 1000,
-      c(1,50),
-      1,
-      c(1,50),
-      1
-    )
+    training_load_1,
+    performance,
+    250,
+    alpha = alpha,
+    delta = 1000,
+    c(1,50),
+    1,
+    c(1,50),
+    1
+  )
+  
+  actual_param_tib_flat <- actual_params_to_tib(params_list_1, 
+                                                training_load_1, 
+                                                length(shortened_training_load), 
+                                                length(training_load)
+  )
+                                                
   parameter_tibble_pred <- lists_to_tibble(prediction_non_noisy[[2]])
+  
+  
   plot <- ggplot(parameter_tibble_pred, aes(x = day, y = ...))+
     geom_line()+
-    geom_line(data = actual_param_tib, color= "red")
+    geom_line(data = actual_param_tib_flat, color= "red")
   plot
 }
 
@@ -124,9 +163,9 @@ take a unique value, so they are "trading" in some sense.
 Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
 Prehaps the matrix of SSE is symmetric. Can then reduce the computational load. This is true:
 
-```{r, eval=FALSE}
+```{r, eval = FALSE}
 prediction_non_noisy <- RLS_predicted_performance(
-      training_load,
+      training_load_1,
       non_noisy_perf,
       250,
       alpha = .0001,
@@ -135,7 +174,7 @@ prediction_non_noisy <- RLS_predicted_performance(
       1,
       c(1,50),
       1
-    
+)    
 #This is the matrix for the RLS model SSE on day 5
 (symm_matrix <- as.data.frame(prediction_non_noisy[[4]][5,,]))
 ```
@@ -160,7 +199,7 @@ noise <- function(x,  sd){
   x+rnorm(1, mean = 0, sd = sd)
 }
 
-noisy_perf = purrr::map_dbl(non_noisy_perf, noise, sd = 1)
+noisy_perf1_1 = purrr::map_dbl(non_noisy_perf_1, noise, sd = 1)
 ```
 
 
@@ -168,8 +207,8 @@ The noise function and a check that it works:
 ```{r}
 performance_tib = tibble::tibble(
   day = c(1:100),
-  non_noisy = non_noisy_perf,
-  noisy = noisy_perf 
+  non_noisy = non_noisy_perf_1,
+  noisy = noisy_perf_1 
 )
  
 # plot <- ggplot(performance_tib, aes(x = day, y = non_noisy))+
@@ -181,12 +220,12 @@ performance_tib = tibble::tibble(
 
 
 Running RLS algorithm with the noisy performance
-```{r}
+```{r, eval=FALSE}
 prediction_noisy <- RLS_predicted_performance(
-      training_load,
-      noisy_perf,
+      training_load_1,
+      noisy_perf_1,
       250,
-      alpha = .0000001,
+      alpha = .55,
       delta = 1000,
       c(1,50),
       1,
@@ -194,10 +233,37 @@ prediction_noisy <- RLS_predicted_performance(
       1
     )
 #prediction_noisy[[2]]
-view(prediction_noisy[[4]][5,,])
+
+data_1 <- tibble(
+  "day" = c(1:100),
+  "pred_perf" = as.numeric(prediction_noisy[[1]]),
+  "perf" = noisy_perf_1
+)
+
+plot_1 <- ggplot(data_1, aes(day, pred_perf))+
+  geom_line()+
+  geom_line(aes(x = day, y=perf), color ="red")
+plot_1
 ```
 This is giving weird results; the parameters are not being recovered. 
 
+
+
+Now lets try recovering the same paramters with a different shape of training load.
+
+```{r}
+training_triangle <- c(1:50, 50:1)
+
+actual_param_tib_triangle <- actual_params_to_tib(params_1, 
+                                                  params_2, 
+                                                  training_triangle, 
+                                                  50, 
+                                                  length(training_load)
+)
+
+
+
+```
 
 
 
