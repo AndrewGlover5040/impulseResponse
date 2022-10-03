@@ -104,10 +104,9 @@ lists_to_tibble <- function(list_of_lists){
 }
 
 #The actually cool function
-prediction_with_alpha <- function(test, alpha, ...){
+prediction_with_alpha <- function(test, alpha, list_params){
   
   actual_performance <- perf_varying_params(test)
-  
   
   prediction_non_noisy <- RLS_predicted_performance(
     test[[2]],   # the training load
@@ -122,16 +121,25 @@ prediction_with_alpha <- function(test, alpha, ...){
   )
   
   parameter_tibble_pred <- lists_to_tibble(prediction_non_noisy[[2]])
+  
   actual_params_tib <- actual_params_to_tib(test)
-
-  plot <- ggplot(parameter_tibble_pred, aes(x = day, y = ...)) +
-    geom_line() +
-    geom_line(data = actual_params_tib, color= "red")
-  plot
+  
+  
+  plots_list <- as.list(rep(NA,length(list_params)))
+  for (i in plots_list) {
+    plots_list[[i]] <- ggplot(parameter_tibble_pred, aes(x = day, y = ...)) +
+      geom_line() +
+      geom_line(data = actual_params_tib, color= "red")
+  }
+  # plot <- ggplot(parameter_tibble_pred, aes(x = day, y = ...)) +
+  #   geom_line() +
+  #   geom_line(data = actual_params_tib, color= "red")
+  # plot
+  plots_list
 }
 
-prediction_with_alpha(test_1, .0001, tau_1)
-prediction_with_alpha(test_1, .0001, tau_2)
+prediction_with_alpha(test_1, .0001, list(tau_1))
+prediction_with_alpha(test_1, .0001, list(tau_2))
 
 # prediction_non_noisy <- RLS_predicted_performance(
 #       training_load,
@@ -242,15 +250,17 @@ This is giving weird results; the parameters are not being recovered.
 Now lets try recovering the same paramters with a different shape of training load.
 
 ```{r}
-training_triangle <- c(1:50, 50:1)
+params_list_traing = list(c(250,.1,.1,25,15), c(250,.5,.5,25,1)) # same as test 1
+training_triang <- c(1:50, 50:1)
+change_date_triang <- 50
 
-actual_param_tib_triangle <- actual_params_to_tib(params_1, 
-                                                  params_2, 
-                                                  training_triangle, 
-                                                  50, 
-                                                  length(training_load)
+test_triang = list(
+  params_list_traing,
+  training_triang,
+  change_date_triang
 )
 
+actual_param_tib_triangle <- actual_params_to_tib(test_triang)
 
 
 ```
