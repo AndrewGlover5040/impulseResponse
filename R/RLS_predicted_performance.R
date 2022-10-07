@@ -179,9 +179,17 @@ estimate_RLS_parameters <- function(
   cost_array <- array(0, c(len_indexes_perf, num_tau_1, num_tau_2))
   theta_list <- list(rep(NA, num_tau_2*num_tau_1))
 
+
   # do the RLS algorithm for all combinations of tau_1 and tau_2
   for (i in 1:num_tau_1) {
-    for (j in 1:num_tau_2) {
+    #modifying What the algorithm searches over to remove the symmetry in the cost matrix
+    j_lim <- num_tau_2
+
+    ##----- currently does nothing different
+    # if (modified==TRUE){
+    #   j_lim = i
+    # }
+    for (j in 1:j_lim) {
       tmp_ans = RLS_Algorithm(
         training_load,
         performance,
@@ -256,6 +264,33 @@ numeric_predictedPerformance <- function(
 
 
 
+#' fix_swaps: a helper function that fixes the swapping nature of the
+#' parameters
+#'
+#' @param list_of_parameters
+#'
+#' @return a list of parameters
+#'
+#'
+#' @examples none
+fix_swaps <- function(list_of_parameters){
+  for (i in 1:length(list_of_parameters)){
+    params_i = list_of_parameters[[i]]
+    if (params_i[[2]] < 0){
+      params_i <- c(
+        params_i[[1]],
+        -params_i[[3]],
+        -params_i[[2]],
+        params_i[[5]],
+        params_i[[4]]
+      )
+      list_of_parameters[[i]] = params_i
+    }
+  }
+  list_of_parameters
+}
+
+
 #' The augmented RLS predition of performance.
 #'
 #' @param training_load A numerical vector. In the i'th spot contains the
@@ -290,7 +325,8 @@ RLS_predicted_performance <- function(
     bounds_T_1,
     by_T_1,
     bounds_T_2,
-    by_T_2
+    by_T_2,
+    modified = FALSE
 ){
   #call the helper function
   tmp <- estimate_RLS_parameters(
@@ -316,9 +352,9 @@ RLS_predicted_performance <- function(
     params_list[[i]] = params_RLS[[j]]
     j = j + 1
   }
+
   ####!!! make first parameter dependent on context !!!####
   params_list[[1]] = c(p_0,.1,0,50,0)
-
   #Fill in NA where there is no performance data.
   for (i in 2:length(params_list)) {
     if (is.na(params_list[[i]][[1]])==TRUE) {
@@ -326,16 +362,20 @@ RLS_predicted_performance <- function(
     }
   }
 
+  #to fix the symmetry of the cost matrix
+  if(modified==TRUE){
+    params_list <- fix_swaps(params_list)
+  }
+
   # Going from parameters to predicted performance.
-  day=as.list(1:length(training_load))
+  day = as.list(1:length(training_load))
   out_list = purrr::map2(
     params_list,
     day,
     numeric_predictedPerformance,
     training_load
   )
-
-  list(out_list, params_RLS, SSE_list, cost_array)
+  list(out_list, params_list, SSE_list, cost_array)
 }
 
 

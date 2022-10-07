@@ -117,17 +117,18 @@ prediction_with_alpha <- function(test, alpha, list_params){
     c(1,50),
     1,
     c(1,50),
-    1
+    1,
+    TRUE
   )
   
   parameter_tibble_pred <- lists_to_tibble(prediction_non_noisy[[2]])
   
   actual_params_tib <- actual_params_to_tib(test)
   
-  
   plots_list <- as.list(rep(NA,length(list_params)))
-  for (i in plots_list) {
-    plots_list[[i]] <- ggplot(parameter_tibble_pred, aes(x = day, y = ...)) +
+  for (i in 1:length(list_params)) {
+    y <- as.name(list_params[[i]])
+    plots_list[[i]] <- ggplot(parameter_tibble_pred, aes(x = day, y = {{y}})) +
       geom_line() +
       geom_line(data = actual_params_tib, color= "red")
   }
@@ -138,8 +139,10 @@ prediction_with_alpha <- function(test, alpha, list_params){
   plots_list
 }
 
-prediction_with_alpha(test_1, .0001, list(tau_1))
-prediction_with_alpha(test_1, .0001, list(tau_2))
+(plots <- prediction_with_alpha(test_1, .1, list("k_1", "k_2", "tau_1", "tau_2")))
+
+
+#prediction_with_alpha(test_1, .0001, list("tau_2"))
 
 # prediction_non_noisy <- RLS_predicted_performance(
 #       training_load,
@@ -161,7 +164,7 @@ take a unique value, so they are "trading" in some sense.
 Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
 Prehaps the matrix of SSE is symmetric. Can then reduce the computational load. This is true:
 
-```{r, eval = FALSE}
+```{r}
 prediction_non_noisy <- RLS_predicted_performance(
       training_load_1,
       non_noisy_perf_1,
@@ -171,7 +174,8 @@ prediction_non_noisy <- RLS_predicted_performance(
       c(1,50),
       1,
       c(1,50),
-      1
+      1,
+      FALSE
 )    
 #This is the matrix for the RLS model SSE on day 5
 (symm_matrix <- as.data.frame(prediction_non_noisy[[4]][5,,]))
