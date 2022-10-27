@@ -9,10 +9,11 @@ Packages and such
 library(ggplot2)
 library(devtools)
 library(tibble)
+library(magrittr) #for %<>%
 set.seed(100) #for consistency in noise function
 load_all()
 ```
-The goal is trying to figure out how well the time-varying model predicts/recovers the paramters of an athlete. 
+The goal is trying to figure out how well the time-varying model predicts/recovers the parameters of an athlete. 
 
 
 To run tests, we have to specify a list of parameters, what days the parameters are used on 
@@ -28,6 +29,8 @@ test_1 <- list(params_list_1,
                change_date)
 ```
 
+
+
 A function that turns our test into the "actual" performance, given by the time-invariant
 impulse-response
 
@@ -36,7 +39,6 @@ perf_varying_params <- function(test){
   params_list = test[[1]]
   training_load = test[[2]]
   change_date = test[[3]]
-  
   c(
     predictedPerformance(params_list[[1]], training_load[1:change_date]),
     na.omit(predictedPerformance(params_list[[2]], training_load)[change_date+1:length(training_load)])
@@ -44,6 +46,8 @@ perf_varying_params <- function(test){
 }
 non_noisy_perf_1 <- perf_varying_params(test_1)
 ```
+
+
 An intermediate function that turns our test into a tibble that contains the actual parameter values used
 on the days of the test. This is used to graph our predicted paramter values against. 
 ```{r}
@@ -79,129 +83,13 @@ actual_params_to_tib <- function(test){
 ```
 
 
-Thought it was easier to make a function 
-`prediction_with_alpha(performance, alpha, ...)` that plots the RLS algorithm --  with `alpha=alpha` and `predicted_performance = predicted parameter` -- given in `...`against that acutal paramters. 
-```{r }
-#turing output of RLS function to something usable
-####could implement this in RLS function
-lists_to_tibble <- function(list_of_lists){
-  len=length(list_of_lists)
-  list_0 <- c(rep(0,len))
-  out=tibble(
-    "day" = 1:len,
-    "p_0" = list_0,
-    "k_1" = list_0,
-    "k_2" = list_0,
-    "tau_1" = list_0,
-    "tau_2" = list_0
-  )
-  for(i in 1:len){
-    for(j in 2:6){
-     out[i,j] = list_of_lists[[i]][[j-1]] 
-    }
-  }
-  out
-}
-
-#The actually cool function
-prediction_with_alpha <- function(test, alpha, list_params){
-  
-  actual_performance <- perf_varying_params(test)
-  
-  prediction_non_noisy <- RLS_predicted_performance(
-    test[[2]],   # the training load
-    actual_performance,
-    250,
-    alpha = alpha,
-    delta = 1000,
-    c(1,50),
-    1,
-    c(1,50),
-    1,
-    TRUE
-  )
-  
-  parameter_tibble_pred <- lists_to_tibble(prediction_non_noisy[[2]])
-  
-  actual_params_tib <- actual_params_to_tib(test)
-  
-  plots_list <- as.list(rep(NA,length(list_params)))
-  for (i in 1:length(list_params)) {
-    y <- as.name(list_params[[i]])
-    plots_list[[i]] <- ggplot(parameter_tibble_pred, aes(x = day, y = {{y}})) +
-      geom_line() +
-      geom_line(data = actual_params_tib, color= "red")
-  }
-  # plot <- ggplot(parameter_tibble_pred, aes(x = day, y = ...)) +
-  #   geom_line() +
-  #   geom_line(data = actual_params_tib, color= "red")
-  # plot
-  plots_list
-}
-
-(plots <- prediction_with_alpha(test_1, .1, list("k_1", "k_2", "tau_1", "tau_2")))
-
-
-#prediction_with_alpha(test_1, .0001, list("tau_2"))
-
-# prediction_non_noisy <- RLS_predicted_performance(
-#       training_load,
-#       non_noisy_perf,
-#       250,
-#       alpha = .0001,
-#       delta =1000,
-#       c(1,50),
-#       1,
-#       c(1,50),
-#       1
-#     )
-# prediction_non_noisy[[2]]
-```
-After some time, `tau_1` and `tau_2` flip between the acutal values. They also
-take a unique value, so they are "trading" in some sense. 
-
-
-Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
-Prehaps the matrix of SSE is symmetric. Can then reduce the computational load. This is true:
-
-```{r}
-prediction_non_noisy <- RLS_predicted_performance(
-      training_load_1,
-      non_noisy_perf_1,
-      250,
-      alpha = .0001,
-      delta = 1000,
-      c(1,50),
-      1,
-      c(1,50),
-      1,
-      FALSE
-)    
-#This is the matrix for the RLS model SSE on day 5
-(symm_matrix <- as.data.frame(prediction_non_noisy[[4]][5,,]))
-```
-
-
-
-Changing values of alpha effects how the algorithm recovers the parameter.
-In the given value, .00000000000000001, the algorithm can recover the first
-set of parameters in 3 data points, For reasonable values (like one or one or
-two decimal points) the data can recover the first set in 7 data points. However,
-for incredibly small values, the model converges on the wrong values, but more
-values can still recover the origional parameters, just at the slow 7 data point rate
-
-prehaps to predict paramters, we should throw out old data (which does have a recursive algorithm in the
-same book that I have).
-
-
-
 Applying noise to this model (with helper function that makes noise)
 ```{r}
-noise <- function(x,  sd){
+noise_fn <- function(x,  sd){
   x+rnorm(1, mean = 0, sd = sd)
 }
 
-noisy_perf_1 = purrr::map_dbl(non_noisy_perf_1, noise, sd = 1)
+noisy_perf_1 = purrr::map_dbl(non_noisy_perf_1, noise_fn, sd = 1)
 ```
 
 
@@ -247,14 +135,162 @@ plot_1 <- ggplot(data_1, aes(day, pred_perf))+
   geom_line(aes(x = day, y=perf), color ="red")
 plot_1
 ```
-This is giving weird results; the parameters are not being recovered. 
+The model works well starting with `alpha=.55`
+
+
+
+Thought it was easier to make a function 
+`prediction_with_alpha(performance, alpha, ...)` that plots the RLS algorithm --  with `alpha=alpha` and `predicted_performance = predicted parameter` -- given in `...`against that acutal paramters. 
+```{r}
+#turing output of RLS function to something usable
+####could implement this in RLS function
+lists_to_tibble <- function(list_of_lists){
+  len=length(list_of_lists)
+  list_0 <- c(rep(0,len))
+  out=tibble(
+    "day" = 1:len,
+    "p_0" = list_0,
+    "k_1" = list_0,
+    "k_2" = list_0,
+    "tau_1" = list_0,
+    "tau_2" = list_0
+  )
+  for(i in 1:len){
+    for(j in 2:6){
+     out[i,j] = list_of_lists[[i]][[j-1]] 
+    }
+  }
+  out
+}
+
+#The actually cool function
+prediction_with_alpha <- function(test, 
+                                  alpha, 
+                                  list_graph = list("k_1", 
+                                                   "k_2", 
+                                                   "tau_1", 
+                                                   "tau_2",
+                                                   "performance",
+                                                   "SSE"), 
+                                  noise = FALSE, 
+                                  sd = 1
+                                  ){
+  #to include noise in measuring performance. 
+  actual_performance <- perf_varying_params(test)
+  if (noise==TRUE){
+    actual_performance <- purrr::map_dbl(actual_performance, noise_fn, sd)
+  }
+  
+  actual_params_tib <- actual_params_to_tib(test)
+  actual_params_tib %<>% add_column("performance" = actual_performance,
+                                    "SSE" = c(rep(0,length(test[[2]])))
+                                    ) 
+  
+  RLS_alg <- RLS_predicted_performance(
+    test[[2]],   # the training load
+    actual_performance,
+    250,
+    alpha = alpha,
+    delta = 1000,
+    c(1,50),
+    1,
+    c(1,50),
+    1,
+    TRUE
+  )
+  predicted_performance = c(rep(0,100))
+  for (i in 1:length(RLS_alg[[1]])){
+    predicted_performance[[i]] <- RLS_alg[[1]][[i]][[1]]
+  }
+  
+  parameter_tibble_pred <- lists_to_tibble(RLS_alg[[2]])
+  parameter_tibble_pred %<>% add_column("performance" = predicted_performance,
+                                        "SSE" = RLS_alg[[3]])
+  
+  plots_list <- as.list(rep(NA,length(list_graph)))
+  for (i in 1:length(list_graph)) {
+    y <- as.name(list_graph[[i]])
+    plots_list[[i]] <- ggplot(parameter_tibble_pred, aes(x = day, y = {{y}})) +
+      geom_line() +
+      geom_line(data = actual_params_tib, color= "red")+
+      labs(title = paste(list_graph[[i]], "versus day"))
+  }
+  plots_list
+}
+
+#add plot of predicted performance versus actual performance
+#add to throw out really high values of k_1 and k_2 of the graph
+
+
+#defining the list of the parameters we are interested in-- we will use these later
+# this was made into an optional argument, but it is kept here to keep the old code working. 
+interesting_params <- list("k_1", "k_2", "tau_1", "tau_2", "performance",
+                           "SSE")
+
+
+#(plots <- prediction_with_alpha(test_1, .1, interesting_params))
+
+
+#prediction_with_alpha(test_1, .0001, list("tau_2"))
+
+# RLS_alg <- RLS_predicted_performance(
+#       training_load,
+#       non_noisy_perf,
+#       250,
+#       alpha = .0001,
+#       delta =1000,
+#       c(1,50),
+#       1,
+#       c(1,50),
+#       1
+#     )
+# RLS_alg[[2]]
+```
+After some time, `tau_1` and `tau_2` flip between the acutal values. They also
+take a unique value, so they are "trading" in some sense. This is fixed. 
+
+
+Sometimes, both `k_1` and `k_2` are negative while `tau_1` and `tau_2` seem to filp
+Prehaps the matrix of SSE is symmetric. Can then reduce the computational load. This is true:
+
+```{r, eval=FALSE}
+RLS_alg <- RLS_predicted_performance(
+      training_load_1,
+      non_noisy_perf_1,
+      250,
+      alpha = .0001,
+      delta = 1000,
+      c(1,50),
+      1,
+      c(1,50),
+      1,
+      FALSE
+)    
+#This is the matrix for the RLS model SSE on day 5
+(symm_matrix <- as.data.frame(RLS_alg[[4]][5,,]))
+```
+
+
+
+Changing values of alpha effects how the algorithm recovers the parameter.
+In the given value, .00000000000000001, the algorithm can recover the first
+set of parameters in 3 data points, For reasonable values (like one or one or
+two decimal points) the data can recover the first set in 7 data points. However,
+for incredibly small values, the model converges on the wrong values, but more
+values can still recover the origional parameters, just at the slow 7 data point rate
+
+prehaps to predict paramters, we should throw out old data (which does have a recursive algorithm in the
+same book that I have).
+
 
 
 
 Now lets try recovering the same paramters with a different shape of training load.
+By keeping the test and alpha constant, a decreasing standard deviation makes the model 
+converge faster in all parameters. 
 
 ```{r}
-params_list_traing = list(c(250,.1,.1,25,15), c(250,.5,.5,25,1)) # same as test 1
+params_list_traing = list(c(250,.1,.1,25,15), c(250,.1,.1,25,15)) # same as test 1
 training_triang <- c(1:50, 50:1)
 change_date_triang <- 50
 
@@ -263,12 +299,27 @@ test_triang = list(
   training_triang,
   change_date_triang
 )
+(plots_triang <- prediction_with_alpha(test_triang, 
+                                       alpha = .9, 
+                                       noise = TRUE, 
+                                       sd=1))
 
-actual_param_tib_triangle <- actual_params_to_tib(test_triang)
+```
 
+```{r}
+(plots_triang <- prediction_with_alpha(test_triang, 
+                                       alpha = .9, 
+                                       noise = TRUE, 
+                                       sd=.01))
 
 ```
 
 
 
+```{r}
+(plots_triang <- prediction_with_alpha(test_triang, 
+                                       alpha = .9, 
+                                       noise = TRUE, 
+                                       sd=.0001))
+```
 
