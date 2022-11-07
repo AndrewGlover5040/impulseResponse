@@ -1,0 +1,40 @@
+---
+title: "my-vignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{my-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(impulseResponse)
+```
+
+# What This Package is About. 
+
+The Banister Impulse-Response model models athletic performance as a function of training load. Roughly, it says that performance can be modeled as the sum of the ability of the athlete before training begins, the positive effects of training (PTE), and the negative effects of training (NTE). Formally, it is defined as,
+$$
+P(n)=p_0+\overbrace{k_1\sum_{i=0}^{n-1}e^{-(n-i)/\tau_1}w(i)}^{\text{PTE}}-\overbrace{k_2\sum_{i=0}^{n-1}e^{-(n-i)/\tau_2}w(i)}^{\text{NTE}}
+$$
+where p_0 is the initial performance, $w(i)$ is the training load on day $i$.  $k_1,~k_2,~\tau_1,$ and $\tau_2$ are real constants. 
+
+Allow me to give some intuition behind the model. If we focus in on just PTE, and ignore $k_1$, we have 
+$$
+PTE(n) \propto e^{-1/\tau_1}w(n-1)+e^{-2/\tau_1}w(n-2)+\dots+e^{-n/\tau_1}w(0)
+$$
+If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any application) then the exponential term in front of the workload decreases as the days decrease; the model gives high weight to recent training days, and low weights to less recent training days. The $\tau$ term controls how quickly we ``forget'' about the past days. The $k$ term in front of the sum then controls how well the body can convert the benefit from the training load to performance. These parameters truly vary from person to person. 
+
+
+Moreover, the parameter values 
+```{r}
+
+```
+
