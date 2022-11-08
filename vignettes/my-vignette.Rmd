@@ -26,15 +26,30 @@ P(n)=p_0+\overbrace{k_1\sum_{i=0}^{n-1}e^{-(n-i)/\tau_1}w(i)}^{\text{PTE}}-\over
 $$
 where p_0 is the initial performance, $w(i)$ is the training load on day $i$.  $k_1,~k_2,~\tau_1,$ and $\tau_2$ are real constants. 
 
+
 Allow me to give some intuition behind the model. If we focus in on just PTE, and ignore $k_1$, we have 
 $$
 PTE(n) \propto e^{-1/\tau_1}w(n-1)+e^{-2/\tau_1}w(n-2)+\dots+e^{-n/\tau_1}w(0)
 $$
 If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any application) then the exponential term in front of the workload decreases as the days decrease; the model gives high weight to recent training days, and low weights to less recent training days. The $\tau$ term controls how quickly we ``forget'' about the past days. The $k$ term in front of the sum then controls how well the body can convert the benefit from the training load to performance. These parameters truly vary from person to person. 
 
+The time-invariant Impulse Response model assumes that the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
-Moreover, the parameter values 
+We can call the model using the `invariant_perf` function. For example:
 ```{r}
+params_ex <- c(250, 10, 10, 25, 15)
+training_load_ex <- rep(100, 100)
+invariant_perf()
+
+
+```
+
+
+We can closely approximate the optimal parameters (with respect to SSE) using the `optim_par` function, which amounts to using R's built in `optim` function. For instance,
+
+```{r}
+
+
 
 ```
 
