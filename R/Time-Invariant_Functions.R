@@ -3,7 +3,7 @@
 #model functions
 #clean up parameters to function
 
-#' predictedPerformance
+#' invariant_perf
 #'
 #' Banister IR Time Invariant Predicted Performance
 #'
@@ -15,7 +15,7 @@
 #' @returns A numerical vector the length of `day`.
 #' @export
 #'
-predictedPerformance=function(params,training_load,day=length(training_load)){
+invariant_perf <- function(params,training_load,day=length(training_load)){
   p_0=params[[1]]; k_1=params[[2]]; k_2=params[[3]]; tau_1=params[[4]]; tau_2=params[[5]]
   out=c(rep(0,day))
   T_1=0; T_2=0
@@ -34,7 +34,7 @@ predictedPerformance=function(params,training_load,day=length(training_load)){
 #'
 #' The SSE of a set of a model.
 #'
-#' @inheritParams predictedPerformance
+#' @inheritParams invariant_perf
 #' @param performance A Numerical vector that is the same
 #'   length as `training_load`. This contains the data of the
 #'   actual performance of the athlete.
@@ -49,7 +49,7 @@ SSE <- function(
     performance,
     day = length(training_load)
 ){
-  Pred <- predictedPerformance(params,training_load,day)
+  Pred <- invariant_perf(params,training_load,day)
   #Performance=Performance[1:day-1]
   error <- performance[!is.na(performance)] - Pred[which(!is.na(performance))]
   error <- error[!is.na(error)]
@@ -62,7 +62,7 @@ SSE <- function(
 #' Return an optimization of the time-invariant parameters, using R's built-in
 #' optimization function.
 #'
-#' @inheritParams predictedPerformance
+#' @inheritParams invariant_perf
 #'
 #' @return A number
 #'

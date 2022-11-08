@@ -20,7 +20,7 @@ library(ggplot2)
 #' # For some training load w, we can get the time-invariant prediction of
 #' performance by calling
 #' [p_0 + k_1*get_performance_matrix(w,c(tau_1,tau_1),1) - k_2*get_performance_matrix(w,c(tau_2,tau_2),1)]
-#' This agrees with predictedPerformance(c(p_0, k_1, k_2, tau_1, tau_2), w)
+#' This agrees with invariant_perf(c(p_0, k_1, k_2, tau_1, tau_2), w)
 #'
 get_performance_matrix <- function(
     training_load,
