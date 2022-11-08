@@ -40,8 +40,8 @@ perf_varying_params <- function(test){
   training_load = test[[2]]
   change_date = test[[3]]
   c(
-    predictedPerformance(params_list[[1]], training_load[1:change_date]),
-    na.omit(predictedPerformance(params_list[[2]], training_load)[change_date+1:length(training_load)])
+    invariant_perf(params_list[[1]], training_load[1:change_date]),
+    na.omit(invariant_perf(params_list[[2]], training_load)[change_date+1:length(training_load)])
   )
 }
 non_noisy_perf_1 <- perf_varying_params(test_1)
@@ -288,9 +288,9 @@ same book that I have).
 Now lets try recovering the same paramters with a different shape of training load.
 By keeping the test and alpha constant, a decreasing standard deviation makes the model 
 converge faster in all parameters. 
-
+5
 ```{r}
-params_list_traing = list(c(250,.1,.1,25,15), c(250,.1,.1,25,15)) # same as test 1
+params_list_traing = list(c(250,.1,.1,25,15), c(250,.5,.5,25,15)) # same as test 1
 training_triang <- c(1:50, 50:1)
 change_date_triang <- 50
 
