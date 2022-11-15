@@ -16,6 +16,7 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(impulseResponse)
+library(ggplot2)
 ```
 
 # What This Package is About. 
@@ -39,7 +40,14 @@ We can call the model using the `invariant_perf` function. For example:
 ```{r}
 params_ex <- c(250, 10, 10, 25, 15)
 training_load_ex <- rep(100, 100)
-invariant_perf()
+inv_perf_ex <- invariant_perf(params_ex, training_load_ex)
+data_ex <- tibble::tibble(
+  "day" = c(1:100),
+  "perf" = inv_perf_ex
+)
+plot_ex <- ggplot(data_ex, aes(x=day, y=perf))+
+  geom_line(color="blue")
+plot_exK
 
 
 ```
