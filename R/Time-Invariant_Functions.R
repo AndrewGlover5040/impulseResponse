@@ -69,14 +69,14 @@ SSE <- function(
 optim_par <- function(
     params,
     training_load,
-    Performance,
-    day=length(Performance)
+    performance,
+    day=length(performance)
 ){
   x <- optim(
-    par = v,
+    par = params,
     fn = SSE,
     training_load = training_load,
-    Performance = Performance,
+    performance = performance,
     day=day
   )
   x$par

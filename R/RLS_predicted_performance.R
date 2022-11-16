@@ -28,8 +28,8 @@ get_performance_matrix <- function(
     by
 ){
   #need to check that this is a positive integer
-  num_tau=(bounds[[2]] - bounds[[1]])/by + 1
-  e_to_the_tau_vec=c(rep(0,num_tau))
+  num_tau = (bounds[[2]] - bounds[[1]])/by + 1
+  e_to_the_tau_vec = c(rep(0,num_tau))
   for (i in 1:num_tau){
     e_to_the_tau_vec[[i]] = exp(-1/(bounds[[1]] + (i-1)*by))
    }
