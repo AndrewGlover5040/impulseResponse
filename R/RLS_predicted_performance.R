@@ -326,7 +326,8 @@ RLS_predicted_performance <- function(
     by_T_1,
     bounds_T_2,
     by_T_2,
-    modified = FALSE
+    modified = FALSE,
+    good_output = FALSE
 ){
   #call the helper function
   tmp <- estimate_RLS_parameters(
@@ -369,12 +370,21 @@ RLS_predicted_performance <- function(
 
   # Going from parameters to predicted performance.
   day = as.list(1:length(training_load))
-  out_list = purrr::map2(
+  out_list = purrr::map2( #map_double???
     params_list,
     day,
     numeric_predictedPerformance,
     training_load
   )
+
+  #to get a usable output for outlist
+  if (good_output==TRUE){
+    tmp <- rep(0,length(out_list))
+    for (i in 1:length(out_list)){
+      tmp[[i]] = out_list[[i]][[1]]
+    }
+      out_list = tmp
+  }
   list(out_list, params_list, SSE_list, cost_array)
 }
 

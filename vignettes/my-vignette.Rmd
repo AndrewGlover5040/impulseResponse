@@ -85,7 +85,7 @@ plot_clarke
 
 
 
-Sometimes, the model works in some situations, but misses in others 
+Sometimes, the model works in some situations, but misses in others. For instance:
 
 ```{r, warning=FALSE} 
 params_guess <- c(250,11,11,30,30)
@@ -111,12 +111,50 @@ plot_winther
 
 ```
 
-This can be done in the app. 
+
+The time invariant model tracks the performance at the beginning of the graph, but then misses some of the points later.
+Overall, it gets pretty close to the actual performances. This suggests that under some circumstances, the parameters of the athletes change over time. 
+The main point of this package is to provide a model that can do so. 
+
+# Time-varying model 
+
+The time-varying model is able to track changes in the paramters. It can be accessed with the function
+`RLS_predicted_performance` for instance:
+
+```{r, warning=FALSE}
+
+winther_RLS_perf <- RLS_predicted_performance(
+    training_load = winther_data[[2]],
+    performance = winther_data[[3]], 
+    p_0 = 250,
+    alpha = .9,
+    bounds_T_1 = c(1,50),
+    by_T_1 = 1,
+    bounds_T_2 = c(1,50),
+    by_T_2 = 1,
+    good_output = TRUE
+)
 
 
-```{r}
-Other data set
+RLS_tib <- tibble::tibble(
+  "day" = winther_data[[1]],
+  "predicted_performance" =  winther_RLS_perf[[1]], #this function returns a list of things, the first one is the predicted performance
+  "actual_performance" = winther_data[[3]] 
+)
+
+
+plot_winther_RLS <- ggplot(RLS_tib, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance))
+plot_winther_RLS
 
 ```
+
+There is a bit of a "burn-in" period, but the Time-Invariant model is able to track the performance better. 
+
+
+
+
+
 
 
