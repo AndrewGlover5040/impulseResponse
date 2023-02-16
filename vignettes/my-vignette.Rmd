@@ -19,9 +19,11 @@ library(devtools)
 library(ggplot2)
 library(readr)
 
+
 load_all() ###The origional way wasn't working. 
-winther_data <- read_csv("~/R/Banister-IR-Model/Winther.data.csv")
-clarke_data <- read_csv("~/R/Banister-IR-Model/clarkeSkibaData.csv")
+
+# Using winther_data and clarke_data 
+# The data is located in impulseResponse\data
 ```
 
 # What This Package is About. 
@@ -37,7 +39,9 @@ Allow me to give some intuition behind the model. If we focus in on just PTE, an
 $$
 PTE(n) \propto e^{-1/\tau_1}w(n-1)+e^{-2/\tau_1}w(n-2)+\dots+e^{-n/\tau_1}w(0)
 $$
-If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any application) then the exponential term in front of the workload decreases as the days decrease; the model gives high weight to recent training days, and low weights to less recent training days. The $\tau$ term controls how quickly we ``forget'' about the past days. The $k$ term in front of the sum then controls how well the body can convert the benefit from the training load to performance. These parameters truly vary from person to person. 
+If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any application) then the exponential term in front of the workload decreases as the days decrease; the model gives high weight to recent training days, and low weights to less recent training days. The $\tau$ term controls how quickly we ``forget'' about the past days. The $k$ term in front of the sum then controls how well the body can convert the benefit from the training load to performance. These parameters vary from person to person. 
+
+## The Time-invariant Model: The `invariant_perf` Function
 
 The time-invariant Impulse Response model assumes that the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
@@ -83,9 +87,7 @@ plot_clarke
 
 ```
 
-
-
-Sometimes, the model works in some situations, but misses in others. For instance:
+Like all models this model is not perfect. The model works in some situations, but misses in others. Looking at the Winther data:
 
 ```{r, warning=FALSE} 
 params_guess <- c(250,11,11,30,30)
@@ -105,10 +107,7 @@ plot_winther <- ggplot(winther_tib, aes(x=day, y=predicted_performance))+
   geom_line(color="blue")+
   geom_point(aes(y=actual_performance))
 plot_winther
-
 # Getting the actual performance
-
-
 ```
 
 
@@ -116,10 +115,9 @@ The time invariant model tracks the performance at the beginning of the graph, b
 Overall, it gets pretty close to the actual performances. This suggests that under some circumstances, the parameters of the athletes change over time. 
 The main point of this package is to provide a model that can do so. 
 
-# Time-varying model 
+# Time-varying Model: The `RLS_predicted_performance` Function
 
-The time-varying model is able to track changes in the paramters. It can be accessed with the function
-`RLS_predicted_performance` for instance:
+This function is the major improvement of this package. The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
 
 ```{r, warning=FALSE}
 
@@ -127,7 +125,7 @@ winther_RLS_perf <- RLS_predicted_performance(
     training_load = winther_data[[2]],
     performance = winther_data[[3]], 
     p_0 = 250,
-    alpha = .9,
+    alpha = .9, #note this input
     bounds_T_1 = c(1,50),
     by_T_1 = 1,
     bounds_T_2 = c(1,50),
@@ -151,6 +149,70 @@ plot_winther_RLS
 ```
 
 There is a bit of a "burn-in" period, but the Time-Invariant model is able to track the performance better. 
+
+The cost of this flexibility is more complexity in the model. The value of `alpha` determines how much the model ''forgets'' past data values. Alpha takes values from one (inclusive) to zero (not inclusive). An `alpha` value of $1$ means that there is no forgetting going on in the model, and a low `alpha` value means that the model quickly for gets past data values. Applying the Time-varying model with an alpha value of $1$ to the Winther Dataset:
+
+```{r, warning=FALSE}
+
+winther_RLS_perf <- RLS_predicted_performance(
+    training_load = winther_data[[2]],
+    performance = winther_data[[3]], 
+    p_0 = 250,
+    alpha = 1, ### Not .9!!!
+    bounds_T_1 = c(1,50),
+    by_T_1 = 1,
+    bounds_T_2 = c(1,50),
+    by_T_2 = 1,
+    good_output = TRUE
+)
+
+
+RLS_tib <- tibble::tibble(
+  "day" = winther_data[[1]],
+  "predicted_performance" =  winther_RLS_perf[[1]], #this function returns a list of things, the first one is the predicted performance
+  "actual_performance" = winther_data[[3]] 
+)
+
+
+plot_winther_RLS <- ggplot(RLS_tib, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance))
+plot_winther_RLS
+```
+The model is pretty smooth, still with a burn-in period, but it misses some of 
+the data points at the end of the data set. 
+
+Conversely, if we use an `alpha` value of $.01$
+
+```{r, warning=FALSE}
+
+winther_RLS_perf <- RLS_predicted_performance(
+    training_load = winther_data[[2]],
+    performance = winther_data[[3]], 
+    p_0 = 250,
+    alpha = .01, ### Not .9!!!
+    bounds_T_1 = c(1,50),
+    by_T_1 = 1,
+    bounds_T_2 = c(1,50),
+    by_T_2 = 1,
+    good_output = TRUE
+)
+
+
+RLS_tib <- tibble::tibble(
+  "day" = winther_data[[1]],
+  "predicted_performance" =  winther_RLS_perf[[1]], #this function returns a list of things, the first one is the predicted performance
+  "actual_performance" = winther_data[[3]] 
+)
+
+
+plot_winther_RLS <- ggplot(RLS_tib, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance))
+plot_winther_RLS
+```
+The model interpolates the points correctly -- there is very little bias --
+but there is a lot of variance. This is a classic example of the bias-variance tradeoff.
 
 
 
