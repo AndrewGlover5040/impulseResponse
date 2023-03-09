@@ -45,7 +45,10 @@ If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any appl
 
 The time-invariant Impulse Response model assumes that the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
-We can call the model using the `invariant_perf` function. For example:
+Lets use `invariant_perf` function on a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely chosen parameters (`params_ex`) we get:
+<!-- make sure that y-axis in graph looks correct -->
+
+
 ```{r}
 params_ex <- c(250, 20, 10, 15, 21)
 training_load_ex <- rep(10, 100)
@@ -60,7 +63,8 @@ plot_ex
 
 
 ```
-
+This model, with the given parameters captures a few phenomenon training with a constant training load. These are the initial gain from the workout, the plateau, and the taper. 
+<!-- citation; prehaps Winther or Busso-->
 
 We can closely approximate the optimal parameters (with respect to SSE) using the `optim_par` function, which amounts to using R's built in `optim` function. If we model this against real data. 
 
@@ -87,7 +91,7 @@ plot_clarke
 
 ```
 
-Like all models this model is not perfect. The model works in some situations, but misses in others. Looking at the Winther data:
+This model does have limitations. In some situations it is reasonalbe that the paramters might vary. Looking at the Winther data:
 
 ```{r, warning=FALSE} 
 params_guess <- c(250,11,11,30,30)
@@ -111,13 +115,11 @@ plot_winther
 ```
 
 
-The time invariant model tracks the performance at the beginning of the graph, but then misses some of the points later.
-Overall, it gets pretty close to the actual performances. This suggests that under some circumstances, the parameters of the athletes change over time. 
-The main point of this package is to provide a model that can do so. 
+The time invariant model tracks the performance at the beginning of the graph, but then misses some of the points later. Overall, it gets pretty close to the actual performances. This suggests that under some circumstances, the parameters of the athletes change over time. Considering training effects such as over training, and insufficient recovery, this makes intuitive sense. The main point of this package is to provide a model that can do so. 
 
 # Time-varying Model: The `RLS_predicted_performance` Function
 
-This function is the major improvement of this package. The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
+The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
 
 ```{r, warning=FALSE}
 
