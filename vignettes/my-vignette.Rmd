@@ -27,6 +27,10 @@ load_all() ###The origional way wasn't working.
 ```
 
 # What This Package is About. 
+In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. 
+
+
+
 
 The Banister Impulse-Response model models athletic performance as a function of training load. Roughly, it says that performance can be modeled as the sum of the ability of the athlete before training begins, the positive effects of training (PTE), and the negative effects of training (NTE). Formally, it is defined as,
 $$
@@ -74,7 +78,6 @@ clarke_optim_params <- optim_par(params_guess,
                                   clarke_data[[2]], #training load of one athlete
                                   clarke_data[[3]], #actual performance of one athlete
 )
-print(clarke_optim_params)
 perf <- invariant_perf(clarke_optim_params, clarke_data[[2]])
 clarke_tib <- tibble::tibble(
   "day" = clarke_data[[1]],
