@@ -322,4 +322,3 @@ test_triang = list(
                                        noise = TRUE, 
                                        sd=.0001))
 ```
-

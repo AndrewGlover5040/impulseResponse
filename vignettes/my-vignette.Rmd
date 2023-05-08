@@ -29,10 +29,12 @@ load_all() ###The original way wasn't working.
 ```
 
 # What This Package is About 
-In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. 
+In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. The main functions are XXXX and XXXX, which are designed to XXXX and XXXX, as will be described below. SHOULD ALSO MENTION THERE ARE INVARIANT AND VARYING VERSIONS.
 
 ## Literature Review
-The Impulse-Response model was introduced in 1975 by Banister et al. (citation) to model athletic performance from training load. It has been used over the years to model athletic performance when the output can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. To our knowledge, the time-invariant model was first introduced in 1997 by Busso (citation). Vermeire et al. provide a good explantion of the limitations of this model (citation). There are not many resources applying the Impulse-Response model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel (citation). This [blog post](https://wintherperformance.netlify.app/post/banister-model/)
+The Impulse-Response model was introduced in 1975 by Banister et al. (citation) to model athletic performance from training load. It has been used over the years to model athletic performance when the output can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. (CITE PAPERS WITH THESE APPLICATIONS). (START NEW PARAGRAPH)To our knowledge, the time-invariant model was first introduced in 1997 by Busso (citation). Vermeire et al. provide a good explanation of the limitations of this model (citation). 
+
+(NEW PARAGRAPH) Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel (citation). Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
 by Andreas K. Winther applies the model in R, and was helpful in creating this package. 
 
 # Impulse-Response model
@@ -43,7 +45,7 @@ $$
 where p_0 is the initial performance, $w(i)$ is the training load on day $i$.  $k_1,~k_2,~\tau_1,$ and $\tau_2$ are real constants. 
 
 
-Allow me to give some intuition behind the model. If we focus in on just PTE, and ignore $k_1$, we have 
+To gain some intuition behind the model, we focus on just PTE and ignore $k_1$. Then, we have 
 $$
 PTE(n) \propto e^{-1/\tau_1}w(n-1)+e^{-2/\tau_1}w(n-2)+\dots+e^{-n/\tau_1}w(0)
 $$
@@ -51,9 +53,9 @@ If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any appl
 
 ## The Time-invariant Model: The `invariant_perf` Function
 
-The time-invariant Impulse Response model assumes that the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
+The version of the Impulse Response model described above is referred to as time-invariant, as it assumes  the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
-Lets use `invariant_perf` function on a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely chosen parameters (`params_ex`) we get:
+The `invariant_perf` function (STATE WHAT THE FUNCTION DOES), which will be illustrated on a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely (WHAT DOES NICELY MEAN?) chosen parameters (`params_ex`) we get:
 <!-- make sure that y-axis in graph looks correct -->
 
 
@@ -73,7 +75,7 @@ plot_ex
 This model, with the given parameters captures a few phenomenon training with a constant training load. These are the initial gain from the workout, the plateau, and the taper. 
 <!-- citation; prehaps Winther or Busso-->
 
-We can closely approximate the optimal parameters (with respect to SSE) using the `optim_par` function, which amounts to using R's built in `optim` function. If we model this against real data. 
+We can closely approximate the optimal parameters (with respect to SSE) (YOU SHOULD EXPAND THIS WITH A COUPLE OF SENTENCES, I.E. THE SSE IS THE OBJECTIVE FUNCTION, ETC.) using the `optim_par` function, which amounts to using R's built in `optim` function. If we model this against real data. 
 
 ```{r, warning=FALSE}
 params_guess <- c(250,11,11,30,30)
@@ -98,7 +100,7 @@ plot_1
 
 ```
 
-This model does have limitations. In some situations it is reasonable that the paramters might vary. Looking at the Winther data:
+This model does have limitations. In some situations it is reasonable that the parameters might vary. Looking at the Winther data:
 
 ```{r, warning=FALSE} 
 params_guess_2 <- c(250,11,11,30,30)
@@ -126,7 +128,7 @@ The time invariant model tracks the performance at the beginning of the graph, b
 
 # Time-varying Model: The `RLS_predicted_performance` Function
 
-The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
+(NEED TO MENTION WHAT RLS MEANS, CITE THE BOOK THE ALGORITHM IS BASED ON). The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
 
 ```{r, warning=FALSE}
 
