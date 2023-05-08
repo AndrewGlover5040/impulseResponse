@@ -1,0 +1,11 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Can I do recursive penalized least squares. [maybe this](https://onlinelibrary.wiley.com/doi/epdf/10.1002/hbm.20000)
+
+Path of app:
+C:/Users/amglo/OneDrive/Documents/R/Banister-IR-Model/app.R
+
+get this working in impulseResponse
+
