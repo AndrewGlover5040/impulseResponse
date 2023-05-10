@@ -53,14 +53,19 @@ If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any appl
 
 ## The Time-invariant Model: The `invariant_perf` Function
 
-We described the time-invariant model above, as it assumes  the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
+We described the time-invariant model above, as it assumes the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
-The `invariant_perf` function (STATE WHAT THE FUNCTION DOES), which will be illustrated on a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely (WHAT DOES NICELY MEAN?) chosen parameters (`params_ex`) we get:
+The `invariant_perf` function provides the model predicted athletic performances given vectors of training loads and the person-specific parameters listed above. This will be illustrated in a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely (WHAT DOES NICELY MEAN?) chosen parameters (`params_ex`) we get:
 <!-- make sure that y-axis in graph looks correct -->
 
 
 ```{r}
-params_ex <- c(250, 20, 10, 15, 21)
+params_ex <- c(250, #p_0
+               20,  #k_1
+               10,  #k_2
+               15,  #tau_1
+               21   #tau_2
+               )
 training_load_ex <- rep(10, 100)
 inv_perf_ex <- invariant_perf(params_ex, training_load_ex)
 data_ex <- tibble::tibble(
