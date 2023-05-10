@@ -29,12 +29,12 @@ load_all() ###The original way wasn't working.
 ```
 
 # What This Package is About 
-In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. The main functions are XXXX and XXXX, which are designed to XXXX and XXXX, as will be described below. SHOULD ALSO MENTION THERE ARE INVARIANT AND VARYING VERSIONS.
+In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. There have been two versions of the impulse-response model discussed in the literature, the original in which the parameters are time-invariant, and a version that was developed later, in which the parameters are allowed to vary over time. The main functions are `invariant_perf` and `RLS_predicted_performance`, which are designed to model the time-invariant and time-variant versions, respectively. These estimate the model parameters given training data.  
 
 ## Literature Review
 The Impulse-Response model was introduced in 1975 by Banister et al. (citation) to model athletic performance from training load. It has been used over the years to model athletic performance when the output can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. (CITE PAPERS WITH THESE APPLICATIONS). (START NEW PARAGRAPH)To our knowledge, the time-invariant model was first introduced in 1997 by Busso (citation). Vermeire et al. provide a good explanation of the limitations of this model (citation). 
 
-(NEW PARAGRAPH) Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel (citation). Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
+Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel (citation). Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
 by Andreas K. Winther applies the model in R, and was helpful in creating this package. 
 
 # Impulse-Response model
@@ -53,7 +53,7 @@ If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any appl
 
 ## The Time-invariant Model: The `invariant_perf` Function
 
-The version of the Impulse Response model described above is referred to as time-invariant, as it assumes  the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
+We described the time-invariant model above, as it assumes  the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
 The `invariant_perf` function (STATE WHAT THE FUNCTION DOES), which will be illustrated on a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely (WHAT DOES NICELY MEAN?) chosen parameters (`params_ex`) we get:
 <!-- make sure that y-axis in graph looks correct -->
