@@ -124,7 +124,7 @@ ui=fluidPage(
                       verbatimTextOutput("out")
                )
              )
-    ),
+    )
 
     #to see what's up
     #tableOutput("Preview"),
