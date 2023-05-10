@@ -55,7 +55,7 @@ If $\tau_1\geq 1$ (this is not restrictive; it makes the model work for any appl
 
 We described the time-invariant model above, as it assumes the parameters $k_1,~k_2,~\tau_1,$ and $\tau_2$ are fixed across time. 
 
-The `invariant_perf` function provides the model predicted athletic performances given vectors of training loads and the person-specific parameters listed above. This will be illustrated in a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some nicely (WHAT DOES NICELY MEAN?) chosen parameters (`params_ex`) we get:
+The `invariant_perf` function provides the model predicted athletic performances given vectors of training loads and the person-specific parameters listed above. This will be illustrated in a simple example. If we apply this function to a constant training load (`training_load_ex`) for $100$ days, and some conveniently chosen parameters (`params_ex`) we get:
 <!-- make sure that y-axis in graph looks correct -->
 
 
@@ -77,10 +77,10 @@ plot_ex <- ggplot(data_ex, aes(x=day, y=perf))+
 plot_ex
 
 ```
-This model, with the given parameters captures a few phenomenon training with a constant training load. These are the initial gain from the workout, the plateau, and the taper. 
-<!-- citation; prehaps Winther or Busso-->
+This model, with the given parameters captures a few phenomenon training with a constant training load. These are the initial gain from the workout (day 1 to 25), the plateau (day 25 to 38), and the taper (day 38 to 100). 
+<!-- citation; original Busso-->
 
-We can closely approximate the optimal parameters (with respect to SSE) (YOU SHOULD EXPAND THIS WITH A COUPLE OF SENTENCES, I.E. THE SSE IS THE OBJECTIVE FUNCTION, ETC.) using the `optim_par` function, which amounts to using R's built in `optim` function. If we model this against real data. 
+The previous example assumed that we had the optimal parameters for simplicity, but with real data, these would need to be estimated. The time-invariant impulse response parameter are obtained by finding the values minimizing the sum of the squared difference between the actual and predicted performance (3 citations; original, clarke skibba, application). We can closely approximate the optimal parameters using this package's `optim_par` function, which amounts to using R's built in `optim` function. We apply this to our previous example below.  
 
 ```{r, warning=FALSE}
 params_guess <- c(250,11,11,30,30)
