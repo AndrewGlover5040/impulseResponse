@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{my-vignette}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+bibliography: vignette.bib 
 ---
 
 ```{r, include = FALSE}
@@ -29,13 +30,15 @@ load_all() ###The original way wasn't working.
 ```
 
 # What This Package is About 
-In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. There have been two versions of the impulse-response model discussed in the literature, the original in which the parameters are time-invariant, and a version that was developed later, in which the parameters are allowed to vary over time. The main functions are `invariant_perf` and `RLS_predicted_performance`, which are designed to model the time-invariant and time-variant versions, respectively. These estimate the model parameters given training data.  
+In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. There have been two versions of the impulse-response model discussed in the literature, the original in which the parameters are time-invariant, and a version that was developed later, in which the parameters are allowed to vary over time. The main functions are `invariant_perf` and `RLS_predicted_performance`, which are designed to model the time-invariant and time-variant versions, respectively. These estimate the model parameters given training data. 
 
 ## Literature Review
-The Impulse-Response model was introduced in 1975 by Banister et al. (citation) to model athletic performance from training load. It has been used over the years to model athletic performance when the output can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. (CITE PAPERS WITH THESE APPLICATIONS). (START NEW PARAGRAPH)To our knowledge, the time-invariant model was first introduced in 1997 by Busso (citation). Vermeire et al. provide a good explanation of the limitations of this model (citation). 
+The Impulse-Response model was introduced in 1975 by Banister et al[@Banister:1975] to model athletic performance from training load. It has been used over the years to model athletic performance when the output can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. [@Mujika:1996; @Thomas:2008; @Busso:1994; @Busso:1997]. 
 
-Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel (citation). Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
-by Andreas K. Winther applies the model in R, and was helpful in creating this package. 
+To our knowledge, the time-invariant model was first introduced in 1997 by Busso [@Busso:1997]. Vermeire et al. provide a good explanation of the limitations of this model [@Vermeire:2022]. 
+
+Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel[@Clarke:2013]. Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
+by Andreas K. Winther applies the model in R, and was helpful in creating this package [@web:Winther]. 
 
 # Impulse-Response model
 The Banister Impulse-Response model models athletic performance as a function of training load. Roughly, it says that performance can be modeled as the sum of the ability of the athlete before training begins, the positive effects of training (PTE), and the negative effects of training (NTE). Formally, it is defined as,
@@ -80,7 +83,7 @@ plot_ex
 This model, with the given parameters captures a few phenomenon training with a constant training load. These are the initial gain from the workout (day 1 to 25), the plateau (day 25 to 38), and the taper (day 38 to 100). 
 <!-- citation; original Busso-->
 
-The previous example assumed that we had the optimal parameters for simplicity, but with real data, these would need to be estimated. The time-invariant impulse response parameter are obtained by finding the values minimizing the sum of the squared difference between the actual and predicted performance (3 citations; original, clarke skibba, application). We can closely approximate the optimal parameters using this package's `optim_par` function, which amounts to using R's built in `optim` function. We apply this to our previous example below.  
+The previous example assumed that we had the optimal parameters for simplicity, but with real data, these would need to be estimated. The time-invariant impulse response parameter are obtained by finding the values minimizing the sum of the squared difference between the actual and predicted performance [@Banister:1975; @Clarke:2013; @Mujika:1996] (3 citations; original, clarke skibba, application). We can closely approximate the optimal parameters using this package's `optim_par` function, which amounts to using R's built in `optim` function. We apply this to our previous example below.  
 
 ```{r, warning=FALSE}
 params_guess <- c(250,11,11,30,30)
@@ -100,10 +103,9 @@ plot_1 <- ggplot(tib_1, aes(x=day, y=predicted_performance))+
   geom_line(color="blue")+
   geom_point(aes(y=actual_performance))
 plot_1
-
-
-
 ```
+
+# Time-varying Model: The `RLS_predicted_performance` Function
 
 This model does have limitations. In some situations it is reasonable that the parameters might vary. Looking at the Winther data:
 
@@ -131,9 +133,9 @@ plot_2
 
 The time invariant model tracks the performance at the beginning of the graph, but then misses some of the points later. Overall, it gets pretty close to the actual performances. This suggests that under some circumstances, the parameters of the athletes change over time. Considering training effects such as over training, and insufficient recovery, this makes intuitive sense. The main point of this package is to provide a model that can do so. 
 
-# Time-varying Model: The `RLS_predicted_performance` Function
+Busso etal (1997) applied a recursive least squares (RLS) algorithm to recover the time-varying parameters. The RLS_predicted_performance applies the RLS algorithm stated in [@Goodwin:1977] repeatedly over a grid search of a variety of values of $\tau_1$, and $\tau_2$
 
-(NEED TO MENTION WHAT RLS MEANS, CITE THE BOOK THE ALGORITHM IS BASED ON). The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using Recursive Least Squares. For instance, it performs better on the Winther data set than the Time-invariant model. 
+(NEED TO MENTION WHAT RLS MEANS, CITE THE BOOK THE ALGORITHM IS BASED ON). The `RLS_predicted_performance` function is able to update our guess of what the parameter values are with each new data point using RLS. For instance, it performs better on the Winther data set than the Time-invariant model. 
 
 ```{r, warning=FALSE}
 
@@ -232,6 +234,7 @@ plot_data_2
 The model interpolates the points correctly -- there is very little bias --
 but there is a lot of variance. This is a classic example of the bias-variance tradeoff.
 
+#Bibliography
 
 
 
