@@ -1,6 +1,7 @@
 library(ggplot2)
 
 ####!!!! make sure that we get an integer number of elements of R!!!!####
+
 #assumes training load has a zero day
 #' Get Performance Matrix
 #'
@@ -70,13 +71,14 @@ RLS_Algorithm <- function(
     training_load,
     performance,
     indexes_perf,
-    fixed_initializations,
+    fixed_initializations, #defined elsewhere once, instead of
+                           #each time we iterate over this.
     p_0,
     T_1_vec,
     T_2_vec,
     alpha=1
 ){
-  #initializations
+  #initializations, same notation as in Goodwin, see vignette.
   ##!!!fix theta to be the right thing
   theta = fixed_initializations[[1]]
   #=matrix(c(.1,0),byrow = TRUE)
@@ -165,14 +167,14 @@ estimate_RLS_parameters <- function(
   # this saves some time by just assigning the same objects to each
   # iteration of the algorithm
   RLS_initializations = list(
-    matrix(c(.1,0), byrow = TRUE),
-    delta*matrix(c(1,0,0,1), nrow=2),
-    matrix(0,2,1),
-    matrix(c(1,0,0,1), nrow=2),
-    numeric(len_indexes_perf),
-    0,
-    1,
-    as.list(rep(NA, len_indexes_perf))
+    matrix(c(.1,0), byrow = TRUE), #theta
+    delta*matrix(c(1,0,0,1), nrow=2), # P
+    matrix(0,2,1), # K, gain matrix
+    matrix(c(1,0,0,1), nrow=2), # identity matrix I
+    numeric(len_indexes_perf), # vector to store sum, S
+    0, # initialize Sum, S
+    1, # initialize counter
+    as.list(rep(NA, len_indexes_perf)) # list to store theta values
   )
 
   #to store the results
