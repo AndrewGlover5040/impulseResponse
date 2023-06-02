@@ -174,7 +174,7 @@ estimate_RLS_parameters <- function(
     numeric(len_indexes_perf), # vector to store sum, S
     0, # initialize Sum, S
     1, # initialize counter
-    as.list(rep(NA, len_indexes_perf)) # list to store theta values
+    as.list(rep(NA, len_indexes_perf)) # list to store theta values in RLS
   )
 
   #to store the results
@@ -328,7 +328,7 @@ RLS_predicted_performance <- function(
     by_T_1,
     bounds_T_2,
     by_T_2,
-    modified = FALSE,
+    swaps_fixed = FALSE,
     good_output = FALSE
 ){
   #call the helper function
@@ -366,7 +366,7 @@ RLS_predicted_performance <- function(
   }
 
   #to fix the symmetry of the cost matrix
-  if(modified==TRUE){
+  if(swaps_fixed==TRUE){
     params_list <- fix_swaps(params_list)
   }
 
