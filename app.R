@@ -90,7 +90,8 @@ ui=fluidPage(
                                     ".csv")),
 
                #...which lets you go to the next page when one is selected
-               uiOutput("nextPage")
+               uiOutput("nextPage"),
+               verbatimTextOutput("test")
              ),
 
              fluidRow(
@@ -151,6 +152,12 @@ server=function(input,output,session){
 
 
   #### reading dataset
+
+  #initializations before a dataset is entered
+  df <- reactive(app_data.csv)
+  training_load_on_graph <- reactive(app_data[[2]])
+  performance_on_graph <- reactive(app_data[[3]])
+
   df <- eventReactive(input$file,{
     req(input$file)
     out=read.csv(input$file$datapath)
@@ -234,7 +241,8 @@ server=function(input,output,session){
                                     as.double(input$bounds_1),
                                     as.double(input$by_1),
                                     as.double(input$bounds_2),
-                                    as.double(input$by_2)
+                                    as.double(input$by_2),
+                                    good_output = FALSE
     )
     unlist(tmp[[1]])
 
