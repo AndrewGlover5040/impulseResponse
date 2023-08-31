@@ -15,7 +15,7 @@ load_all()
 #   automatically create day column
 #   add 0 to day column if there is no zero day
 
-
+save(app_data, file="app_data.rda")
 
 ######!!!!!comments that look like this are things that might need to be fixed.
 
@@ -154,14 +154,19 @@ server=function(input,output,session){
   #### reading dataset
 
   #initializations before a dataset is entered
-  df <- reactive(app_data.csv)
+  df <- reactiveVal(data_1.rda)
   training_load_on_graph <- reactive(app_data[[2]])
   performance_on_graph <- reactive(app_data[[3]])
 
+
   df <- eventReactive(input$file,{
-    req(input$file)
-    out=read.csv(input$file$datapath)
-    out
+    if (is.null(input$file$datapath) == FALSE){
+      out=read.csv(input$file$datapath)
+      out
+    }
+    else{
+      app_data.csv
+    }
   })
 
   training_load_on_graph <- eventReactive(input$graph,{
@@ -245,7 +250,6 @@ server=function(input,output,session){
                                     good_output = FALSE
     )
     unlist(tmp[[1]])
-
   })
 
 
@@ -287,8 +291,6 @@ server=function(input,output,session){
   })
 
   output$plotInfluence <- renderPlot({plotInflu()})
-
-
 
   #### Training load plot
   plotTrain <- eventReactive(input$graph,{
