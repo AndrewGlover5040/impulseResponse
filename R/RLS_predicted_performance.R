@@ -389,7 +389,13 @@ RLS_predicted_performance <- function(
     }
       out_list = tmp
   }
-  list(out_list, params_list, SSE_list, cost_array)
+
+  output <- list()
+  output$performance <- out_list
+  output$parameters <- params_list
+  output$SSE <- SSE_list
+  output$cost <- cost_array
+  return(output)
 }
 
 #####  Testing #####
