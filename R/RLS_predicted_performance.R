@@ -311,6 +311,8 @@ fix_swaps <- function(list_of_parameters){
 #'   (See `get_performance_matrix`)
 #' @param by_T_2 Specifies the increment for R in T_1
 #'   (See `get_performance_matrix`)
+#' @param swaps_fixed fixes the "swaping" nature of the parameters
+#'
 #'
 #' @return A list containing the predicted performance from the RLS algorithm,
 #'   The list containing the parameters used to calculate the performance,
@@ -390,18 +392,23 @@ RLS_predicted_performance <- function(
   list(out_list, params_list, SSE_list, cost_array)
 }
 
-
-
+#####  Testing #####
+# data_1
+# (Training.1 <- data_1$`Training Load`)
+#
+# str(Training.1)
+# Performance.1 <- data_1$Performance
+#
 # predicted_performance <- RLS_predicted_performance(Training.1,
-#                                             Performance.1,
-#                                  262,
-#                                  alpha = .95,
-#                                  delta = 1000,
-#                                  bounds_T_1 = c(1,50),
-#                                  by_T_1 = 1,
-#                                  bounds_T_2 = c(1,50),
-#                                  by_T_2 = 1
-#                                  )
+#                                                    Performance.1,
+#                                                    262,
+#                                                    alpha = .95,
+#                                                    delta = 1000,
+#                                                    bounds_T_1 = c(1,50),
+#                                                    by_T_1 = 1,
+#                                                    bounds_T_2 = c(1,50),
+#                                                    by_T_2 = 1
+# )
 
 # predicted=unlist(predicted_performance)
 #
