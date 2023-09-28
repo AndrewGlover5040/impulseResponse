@@ -40,7 +40,6 @@ get_performance_matrix <- function(
   for (i in 2:max_day){
     out_matrix[,i] = e_to_the_tau_vec*(out_matrix[,i-1]) + training_load[[i]]
   }
-
   out_matrix
 }
 

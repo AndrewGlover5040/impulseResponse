@@ -5,26 +5,25 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r purling, eval=FALSE, include=FALSE, purl=FALSE}
+#### run this to purl the r code to the /R file, this seems to not be able to run with the knit
+knitr::purl(input = "calc_power_funcs.Rmd",
+            output = stringr::str_c(rprojroot::find_rstudio_root_file(),"/R/calc_power_funcs.R") #puts file in /R)
+            ) 
+
+``` 
+
+
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+devtools::load_all() #can't purl this function, it will cause in infinite loop when another document purls
 ```
 
-## R Markdown
+We will make a couple of assumptions: 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+p_0 is exact as giv ljkjk
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+RLS
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
