@@ -2,7 +2,8 @@
 title: "improving initital estimate"
 author: "Andrew Glover"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  pdf_document: default
 ---
 
 ```{r purling, eval=FALSE, include=FALSE, purl=FALSE}
@@ -21,9 +22,16 @@ devtools::load_all() #can't purl this function, it will cause in infinite loop w
 
 We will make a couple of assumptions: 
 
-p_0 is exact as giv ljkjk
+1. Athletic performance is completely determined by Banister's FF model
+2. $p_0$ is exact and we don't have to estimate it 
+3. There is no noise in estimating the parameters or performance
+
+The goal of this document is to try to get a good initial estimate for the 
+parameters for our new algorithm and for RLS. 
+
+# Generating Data
 
 ```{r}
-RLS
+
 ```
 
