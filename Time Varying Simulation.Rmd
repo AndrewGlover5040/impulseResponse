@@ -1,0 +1,45 @@
+---
+title: "Simulating Time-Varying Performance"
+author: "Andrew Glover"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We need to simulate Time-Varying Banister FF model data
+
+```{r Generating the parameters}
+prams_even_space <- function(k_1, tau_1, k_2, tau_2, change_days==NULL, days) {
+  
+}
+
+
+```
+
+
+```{r Varying Performance}
+#' Title
+#'
+#' @param params_mat a n by 4 matrix, where n is the number of days
+#' @param training_load an n dimensional vector 
+#'
+#' @return a n? dimensional vector with the performance
+#' @export
+#'
+#' @examples
+perf_tv <- function(p_0, params_mat, training_load) {
+  days <- nrow(params_mat)
+  perf_out <- c(rep(NA, days))
+  T_1 <- 0; T_2 <- 0
+  for (i in 1:days) {
+    T_1 <- exp(-1/params_mat$tau_1[[i]])*T_1 + training_load[[i]]
+    T_2 <- exp(-1/params_mat$tau_2[[i]])*T_2 + training_load[[i]]
+    perf_out[[i]] <- p_0 + params_mat$k_1[[i]]*T_1 + params_mat$k_2[[i]]*T_2 
+  }
+  return(perf_out)
+}
+```
+
