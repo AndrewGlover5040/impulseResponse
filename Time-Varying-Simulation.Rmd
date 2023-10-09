@@ -199,8 +199,46 @@ perf_plot(p_0 = 500,
 To have the effects of an initial negative effect, and a long-run positive effect to a constant stimulus, 
 it seems to be necessary that $k_1<k_2$ and $\tau_1$ has to be much bigger than 
 
-Lets try to use $\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}$ in the metric
+Lets try to use $\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}$ in the ''metric''
 to evaluate the distance between parameter sets
+
+
+We can write
+$$
+\text{dist}_\text{perf}(z,z') = |f(z)-f(z')|
+$$
+
+where $f:(\mathbb{R}^2\times \mathbb{R}_{>0})^2\rightarrow \mathbb{R}$
+is given by 
+$$
+z=(k_1,\tau_1, k_2, \tau_2)\mapsto \frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}
+$$
+$\text{dist}_\text{perf}$ is a metric, from the properties of the absolute value, 
+except for the fact that the distance between two points has to be positive, 
+since $f$ is not injective. 
+
+<!-- Indeed, if $z'$ is given,  -->
+<!-- $$ -->
+<!-- \text{dist}_\text{perf}(z,z') = 0 ~~\implies~~ \frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}} = C -->
+<!-- $$ -->
+<!-- For some $C\in \mathbb{R}$. This set of equations is incredibly over-determined,  -->
+<!-- and there are many choices of $z$ that satisfy this.  -->
+
+Since 
+$$
+e^{n/x} \approx 1-\frac{n}{x}
+$$
+we have that 
+$$
+1-e^{-1/x} \approx 1/x
+$$
+
+Therefore, 
+$$
+f(z) =\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}\approx k_1\tau_1-k_2\tau_2
+$$
+I don't believe that this approximation is very good, but it provides a good 
+intuition about this function. 
 
 
 ```{r, eval=FALSE}
@@ -213,17 +251,19 @@ params_dist <- function(params_1, params_2) {
         lim_func(params_2[[1]], params_2[[2]], params_2[[3]], params_2[[4]])
       )
 }
+```
 
+
+# Applying the ''norm'' to figure out ''distance'' from a point
+
+# Don't run this chunk locally
+```{r, eval = FALSE}
 params_grid <- expand.grid(k_1 = seq(1,50, length.out=100),
             tau_1 = seq(1,50, length.out=100),
             k_2 = seq(1,50, length.out=100),
             tau_2 = seq(1,50, length.out=100)
             )
-```
 
-
-# Applying the ''norm'' to figure out ''distance'' from a point
-```{r, eval = FALSE}
 params_matrix <- as.matrix(params_grid)
 dist_vec <- c(rep(0, 100000000))
 iter_fn <- function(i, params_matrix) {
@@ -290,11 +330,19 @@ ggsave(filename = "cdf_plot.pdf",
 knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/dist\ from\ single\ set.pdf"))
 knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/cdf_plot.pdf"))
 # fix the formatting later
-
 ```
 
 
 
+```{r}
+x = seq(-10, 10 , length.out = 1007)
+g <- function(x) {
+  1-exp(-1/x)
+}
+
+
+
+```
 
 
 
