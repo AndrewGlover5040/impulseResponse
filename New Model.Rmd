@@ -1,0 +1,16 @@
+---
+title: "New Model"
+author: "Andrew Glover"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r libraries, package functions}
+devtools::load_all()
+
+```
+
+```{r}
+
+```
+
