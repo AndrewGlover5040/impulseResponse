@@ -199,11 +199,11 @@ perf_plot(p_0 = 500,
 To have the effects of an initial negative effect, and a long-run positive effect to a constant stimulus, 
 it seems to be necessary that $k_1<k_2$ and $\tau_1$ has to be much bigger than 
 
-Lets try to use $\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}$ in the metric
+Lets try to use $\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}$ in the metric
 to evaluate the distance between parameter sets
 
 
-```{r}
+```{r, eval=FALSE}
 lim_func <- function(k_1, tau_1, k_2, tau_2) {
   k_1/(1-exp(-1/tau_1))-k_2/(1-exp(-1/tau_2))
 }
@@ -219,34 +219,79 @@ params_grid <- expand.grid(k_1 = seq(1,50, length.out=100),
             k_2 = seq(1,50, length.out=100),
             tau_2 = seq(1,50, length.out=100)
             )
+```
+
+
+# Applying the ''norm'' to figure out ''distance'' from a point
+```{r, eval = FALSE}
 params_matrix <- as.matrix(params_grid)
 dist_vec <- c(rep(0, 100000000))
 iter_fn <- function(i, params_matrix) {
   params_dist(params_matrix[i, ], c(1,25,2,10))
 }
-# dist_vec <- parallel::mcmapply(
-#   iter_fn,
-#   c(1:1000),
-#   params_matrix,
-#   mc.cores = floor(.7 * parallel::detectCores())
-# )
-parallel::detectCores()
-est_stat_vec <- parallel::mcmapply(
+
+# parallel computing is a factor for this computation, took a few minuites
+dist_vec <- parallel::mcmapply(
   iter_fn,
-  c(1:n_iter),
-  beta_0,
-  beta_alt,
-  test_model,
-  data_model,
-  fix_seeds = fix_seeds,
-  modified = modified,
-  ... ,
-  mc.cores = floor(.7 * parallel::detectCores())
+  i = c(1:100000000),
+  MoreArgs = list(params_matrix = params_matrix),
+  mc.cores = floor(.9 * parallel::detectCores())
 )
+# a 100,000,000 element, 100 MB vector
+save(dist_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),"/generated_data/dist_vec.RData"))
+# so we don't have to do the computation again
+
+dist_tib <- tibble::tibble(
+  "dist" = dist_vec
+)
+
+plot_hist <- ggplot(dist_tib, aes(x=dist)) +
+  geom_histogram() +
+  labs(title = "distance from c(1,25,2,10)" )
+plot_hist 
+
+
+# so we can call the outputed plot in this markdownfile, to save time. 
+ggsave(filename = "dist from single set.pdf",
+       plot_hist, 
+       path = stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots"),
+       device = "pdf")
+
+
+# this took awhile
+cdf_vec <- c(rep(0, 2601))
+for (i in 1:2601) {
+  cdf[[i]] <- length(which(dist_vec<=i))
+}
+
+cdf_data <- tibble(
+  "x" = c(1:2601),
+  "percent_leq_x" = cdf/100000000
+)
+
+# to save computation time later
+save(cdf_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),"/generated_data/cdf_vec.RData"))
+
+cdf_plot <- ggplot(cdf_data, aes(x=x, y= percent_leq_x)) +
+  geom_point() +
+  labs(x = "x",
+       y = "Percent of param sets leq x",
+       title = "cdf_of_distance ")
+cdf_plot
+
+ggsave(filename = "cdf_plot.pdf",
+       cdf_plot, 
+       path = stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots"),
+       device = "pdf")
 
 ```
 
+```{r echo = FALSE}
+knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/dist\ from\ single\ set.pdf"))
+knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/cdf_plot.pdf"))
+# fix the formatting later
 
+```
 
 
 
