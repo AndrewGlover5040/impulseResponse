@@ -241,7 +241,7 @@ I don't believe that this approximation is very good, but it provides a good
 intuition about this function. 
 
 
-```{r, eval=FALSE}
+```{r metric functions}
 lim_func <- function(k_1, tau_1, k_2, tau_2) {
   k_1/(1-exp(-1/tau_1))-k_2/(1-exp(-1/tau_2))
 }
@@ -278,7 +278,8 @@ dist_vec <- parallel::mcmapply(
   mc.cores = floor(.9 * parallel::detectCores())
 )
 # a 100,000,000 element, 100 MB vector
-save(dist_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),"/generated_data/dist_vec.RData"))
+save(dist_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),
+                                     "/generated_data/dist_vec.RData"))
 # so we don't have to do the computation again
 
 dist_tib <- tibble::tibble(
@@ -310,7 +311,8 @@ cdf_data <- tibble(
 )
 
 # to save computation time later
-save(cdf_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),"/generated_data/cdf_vec.RData"))
+save(cdf_vec, file = stringr::str_c(rprojroot::find_rstudio_root_file(),
+                                    "/generated_data/cdf_vec.RData"))
 
 cdf_plot <- ggplot(cdf_data, aes(x=x, y= percent_leq_x)) +
   geom_point() +
@@ -326,21 +328,68 @@ ggsave(filename = "cdf_plot.pdf",
 
 ```
 
+
 ```{r echo = FALSE}
-knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/dist\ from\ single\ set.pdf"))
-knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),"/plots/cdf_plot.pdf"))
+knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),
+                                       "/plots/dist\ from\ single\ set.pdf"))
+knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),
+                                       "/plots/cdf_plot.pdf"))
 # fix the formatting later
 ```
 
 
 
 ```{r}
-x = seq(-10, 10 , length.out = 1007)
-g <- function(x) {
-  1-exp(-1/x)
+set.seed(443)
+C_1 <- round(lim_func(1,25,2,10), digits = 1)
+n <- 150
+vec_1<- runif(n, 5, 50)+C_1
+k_1_same <- mapply(function(i) {runif(1, 1, vec_1[[i]])}, c(1:n)) 
+tau_1_same <- -1/log(1-k_1_same/vec_1)
+
+vec_2 <- vec_1-C_1
+k_2_same <- mapply(function(i) {runif(1, 1, vec_2[[i]])}, c(1:n)) 
+tau_2_same <- -1/log(1-k_2_same/vec_2)
+
+
+day <- 150
+p_0 <- 500
+training_load <- c(rep(100, day))
+same_test_tib <- tibble(
+  "day"  = c(0:day)
+)
+
+for (i in 1:n) {
+  same_test_tib[, stringr::str_c("p", i)] <- c(p_0,
+                                               perf_tv(
+                                                 p_0 = p_0,
+                                                 params_mat = params_mat(
+                                                   k_1 = k_1_same[[i]],
+                                                   tau_1 = tau_1_same[[i]],
+                                                   k_2 = k_2_same[[i]],
+                                                   tau_2 = tau_2_same[[i]],
+                                                   days = day
+                                                 ),
+                                                 training_load = training_load
+                                               ))
 }
 
 
+pal_color <- scales::hue_pal()(n)
+names(pal_color) <- names(same_test_tib[2:n+1])
+
+cols <- as.list(names(same_test_tib[2:n+1]))
+plot_same <- ggplot(data = same_test_tib, aes(x = day)) +
+    lapply(cols, function(x) {
+      geom_line(aes(y = .data[[x]], color = x))
+    }) +
+    scale_color_manual(values = pal_color) +
+  labs(x = "Day",
+       y = "Simulated Performance",
+       title = "Simulated Performacne of Parameter Sets with Same Limit") +
+  theme(legend.position = "none")
+
+plot_same
 
 ```
 
