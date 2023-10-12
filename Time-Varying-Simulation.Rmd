@@ -426,7 +426,16 @@ plot_same <- ggplot(data = same_test_tib_new, aes(x = day)) +
 plot_same
 
 ```
+The colors were sorted by the maximum value. It seems that the maximum value 
+does not determine a convergence rate; there are some curves that peak late, 
+but this generally doesn't happen. 
+
+Even though our metric is not truly a metric, it will probably become one
+when also restrict our curves with minimizing the sum of squared error. 
 
 
+```{r}
+
+```
 
 
