@@ -338,11 +338,11 @@ knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),
 ```
 
 
-
+# Generating many performance curves with the same limit and plotting 
 ```{r}
 set.seed(443)
 C_1 <- round(lim_func(1,25,2,10), digits = 1)
-n <- 150
+n <- 100
 vec_1<- runif(n, 5, 50)+C_1
 k_1_same <- mapply(function(i) {runif(1, 1, vec_1[[i]])}, c(1:n)) 
 tau_1_same <- -1/log(1-k_1_same/vec_1)
@@ -379,7 +379,41 @@ pal_color <- scales::hue_pal()(n)
 names(pal_color) <- names(same_test_tib[2:n+1])
 
 cols <- as.list(names(same_test_tib[2:n+1]))
-plot_same <- ggplot(data = same_test_tib, aes(x = day)) +
+min_or_max_vec <- c(rep(0,n))
+for (i in 1:n) {
+  if (round(max(same_test_tib[, i+1]), digits = 1)<=950){
+    min_or_max_vec[[i]] <- min(same_test_tib[, i+1])
+  }
+  else {
+    min_or_max_vec[[i]] <- max(same_test_tib[, i+1])
+  }
+}
+
+# reordering the columns so the plot looks nice
+ord_min_or_max_vec <- sort(min_or_max_vec)
+ord_min_or_max_vec
+permutation_index <- c(rep(NA, n))
+for (i in 1:n) {
+  value <- min_or_max_vec[[i]]
+  output_index <- which(ord_min_or_max_vec == value)
+  while(is.na(permutation_index[[i]])) {
+    if (output_index[[1]] %in% permutation_index){
+      output_index <- output_index[-1]
+    }
+    else {
+      permutation_index[[i]] <- output_index[[1]]
+    }
+  }
+}
+
+
+same_test_tib_new <- same_test_tib
+for (i in 1:n) {
+  same_test_tib_new[, permutation_index[[i]] + 1] <- same_test_tib[,i  + 1]
+}
+
+
+plot_same <- ggplot(data = same_test_tib_new, aes(x = day)) +
     lapply(cols, function(x) {
       geom_line(aes(y = .data[[x]], color = x))
     }) +
