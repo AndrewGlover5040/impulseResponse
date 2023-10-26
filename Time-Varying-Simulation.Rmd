@@ -4,22 +4,36 @@ author: "Andrew Glover"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
-
-```{r setup, include=FALSE}
+# setup
+```{r setup, include=FALSE, purl = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(purl=FALSE)
 ```
 
-## Libraries
-```{r libraries}
+```{r purling, eval=FALSE, include=FALSE, purl=FALSE}
+#### run this to purl the r code to the /R file, this seems to not be able to run with the knit
+knitr::purl(input = "Time-Varying-Simulation.Rmd",
+            output = stringr::str_c(rprojroot::find_rstudio_root_file(),"/R/Time-Varying-Simulation.R") #puts file in /R)
+            ) 
+
+``` 
+
+## 
+
+```{r libraries, purl = TRUE}
 library(ggplot2) # for graphing
 library(patchwork) # to add graphs together
 library(tibble) # tibbles
 ```
 
+```{r}
+devtools::load_all()
+```
+
 
 # Functions used for analysis 
 
-```{r Generating the parameters matrix}
+```{r Generating the parameters matrix, purl=TRUE}
 params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
   if (length(k_1) == length(tau_1) && 
       length(k_1) == length(tau_2) &&
@@ -44,7 +58,7 @@ params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
 ```
 
 
-```{r Varying Performance}
+```{r Varying Performance, purl = TRUE}
 #' Title
 #'
 #' @param params_mat a n by 4 matrix, where n is the number of days
@@ -68,7 +82,7 @@ perf_tv <- function(p_0, params_mat, training_load) {
 ```
 
 
-```{r}
+```{r, purl = TRUE}
 perf_plot <- function(p_0,
                       k_1,
                       tau_1,
@@ -76,7 +90,8 @@ perf_plot <- function(p_0,
                       tau_2,
                       change_days = NULL,
                       days,
-                      training_stim) {
+                      training_stim,
+                      lim = TRUE) {
   training_load <- c()
   limit <- 0
   if (training_stim[[1]] == "constant") {
@@ -102,7 +117,10 @@ perf_plot <- function(p_0,
   
   plot <- ggplot(tmp_data, aes(x = day)) +
     geom_point(aes(y = performance, color = "perf")) +
-    geom_line(aes(y = limit, color = "lim"))
+  if (lim == TRUE){
+     plot <- plot + geom_line(aes(y = limit, color = "lim"))
+  }
+ 
   
   #   scale_color_manual("Legend",
   #                      values = c("lim" = "#e31a1c", # this color comes from the theme "Paired"
@@ -256,7 +274,7 @@ params_dist <- function(params_1, params_2) {
 
 # Applying the ''norm'' to figure out ''distance'' from a point
 
-# Don't run this chunk locally
+## Don't run this chunk locally
 ```{r, eval = FALSE}
 params_grid <- expand.grid(k_1 = seq(1,50, length.out=100),
             tau_1 = seq(1,50, length.out=100),
@@ -435,6 +453,22 @@ when also restrict our curves with minimizing the sum of squared error.
 
 
 ```{r}
+p_0=500
+k_1 <- seq(1, 50, length.out = 50)
+k_2 <- seq(1, 50, length.out = 50)
+tau_1 <- seq(1, 50, length.out = 50)
+tau_2 <- seq(1, 50, length.out = 50)
+days <- 100
+training_load_1 <- c(rep(100, days))
+params_grid_1 <- as_tibble(expand.grid(k_1, tau_1, k_2, tau_2))
+output_matrix <- params_grid_1
+output_matrix$performance
+for (i in nrow(params_grid_1)){ 
+  invariant_perf(params = c(p_0, params_grid_1[i, ]), 
+                 training_load = training_load_1)
+}
+
+
 
 ```
 
