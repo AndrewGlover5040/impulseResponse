@@ -1,0 +1,315 @@
+---
+title: "Improving the Banister Fitness Fatigue Model"
+author: "Andrew Glover"
+date: "`r Sys.Date()`"
+output: 
+  beamer_presentation:
+    theme: "Copenhagen"
+    colortheme: "whale"
+    fonttheme: "serif"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(devtools)
+library(ggplot2)
+library(readr)
+library(ggedit)
+library(latex2exp)
+load_all()
+```
+
+## What's the point?!?
+
+After this talk, you will get
+
+- An understanding of what performance gains from atheletic training look like
+- An understanding of what models of atheletic performance are like
+
+## Background
+- The Banister Fitness-Fatigue model models athletic performance as a function of 
+training load. 
+- Performance can be modeled as the ability of the athlete before training begins, the positive training effects
+(PTE), and the negative training effects (NTE) 
+- Introduced in 1976 by Eric Banister 
+- Many applicatons
+
+## Applications
+Can be applied to any sport that can be quantified. For example, it has been 
+applied to 
+
+- Running
+- Cycling
+- Swimming 
+- Powerlifting 
+
+But not 
+
+- Football
+- Soccer
+- Volleyball
+- Chess
+
+
+## Model definition
+Formally, it is defined as,
+$$
+P(n)=p_0+\overbrace{k_1\sum_{i=0}^{n-1}e^{-(n-i)/\tau_1}w(i)}^{\text{PTE}}-\overbrace{k_2\sum_{i=0}^{n-1}e^{-(n-i)/\tau_2}w(i)}^{\text{NTE}}
+$$
+where $P(n)$ is the predicted performance on day $n$, $p_0$ is the initial performance, $w(i)$ is the training load on day $i$.  $k_1,~k_2,~\tau_1,$ and $\tau_2$ are constants greater than 0. 
+
+## A note on units
+- Athletic perforamcne is measured in arbitrary units. 
+- Just numbers for this project
+- Training load is roughly measured as the fatigue on the body, and 
+is measured differently with different sports. 
+- Measuring methods include max heart rate, level of lactate in the blood, training impulse from the training 
+regimen. 
+
+## Intuition on the model
+Lets just look at the sumin the model. We have
+$$
+TE(n) \propto e^{-1/\tau}w(n-1)+e^{-2/\tau}w(n-2)+\dots+e^{-n/\tau}w(0)
+$$
+Under our assumption that $\tau>0$, $e^{-1/\tau}$ is just a number between 
+$0$ and $1$. Proof:
+
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+f <- function(x) {
+  exp(-1/x)
+}
+data_proof <- tibble(
+  "xx" = c(seq(0,40, length.out = 1000)),
+  "fx" = c(f(xx))
+)
+
+proof_plot <- ggplot(data_proof, aes(x = xx, y = fx)) +
+  geom_line()+
+  labs(x = "x",
+       y = "f(x)",
+       title = TeX("Graph of f(x) = \\exp(-1/x)")) +
+  theme(axis.text=element_text(size=24),
+        axis.title=element_text(size=32),
+        title = element_text(size=32))
+
+  
+
+proof_plot
+```
+
+
+
+## Intuition on the model, cont
+Rewriting, the $TE$ term, we get
+
+$$
+TE(n) \propto (e^{-1/\tau})^1w(n-1)+(e^{-1/\tau})^2w(n-2)+\dots+(e^{-1/\tau})^nw(0)
+$$
+The $k_1$ and $k_2$ terms control the magnitude of these training effects. 
+
+## Limitations of the model
+We can see some of the limitations of the model. 
+
+(1) It assumes that we recover the same way every day, which isn't true, since you 
+can over train, not get enough sleep, get better at recovering over time, etc. 
+
+(2) The modeling process is very specific. In practice, the model parameters
+depend on the person, the sport, and even the training regeme. 
+
+(3) The paramters are not super interpretable; knowing just $\tau_1$, for 
+instance, does not tell us anything
+
+My research tries to fix problem 1, by letting the parameters vary over time.
+
+## Application of Parameters
+
+We can use the parameters to predict taper time
+
+$$
+\text{Taper Time} = \frac{\tau_1\tau_2}{\tau_1-\tau_2}\log\left(\frac{k_1}{k_2}
+\right)
+$$
+So the parameters are important!
+
+## What the model looks like 
+
+This is roughly how the plots look
+
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+plot <- perf_plot(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 30, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = 200,
+          training_stim = list("constant", 100)) +
+
+  labs(x = "Day",
+    y = "Predicted Performance (arbitrary units)",
+       title = "Example Peformance Curve") +
+  geom_line(aes(y = performance, color = "perf"), size = 1)+
+    scale_color_manual("Legend",
+                       values = c("perf" = "blue")
+                       ) +
+  theme(axis.text=element_text(size=24),
+        axis.title=element_text(size=32),
+        title = element_text(size=32),
+        legend.position = "none")
+
+plot <- remove_geom(plot, "point", 1)
+plot
+
+```
+This captures a few aspects of the performance-training relationship: 
+
+- Initial negative response to the training 
+- A recovery and a benefit to the training
+- A plateu. 
+
+## First real data set
+We will first see the model appled to cyclist data. 
+
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+params_guess <- c(250,11,11,30,30)
+
+optim_params_1 <- optim_par(params_guess, 
+                                  data_1[[2]], #training load of one athlete
+                                  data_1[[3]], #actual performance of one athlete
+)
+perf <- invariant_perf(optim_params_1, data_1[[2]])
+tib_1 <- tibble::tibble(
+  "day" = data_1[[1]],
+  "predicted_performance" = perf, 
+  "actual_performance" = data_1[[3]] 
+)
+
+plot_1 <- ggplot(tib_1, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance)) +
+  labs(x = "Day",
+       y = "Predicted Performance ",
+       title = "Banister Model with Cyclist Data") +
+  theme(axis.text=element_text(size=24),
+        axis.title=element_text(size=32),
+        title = element_text(size=32))
+
+
+plot_1
+```
+- Paramters arrived at by guess, and then optimization
+- Interpolates the data points well
+
+
+## Real dataset 2
+Applying the same model to a different dataset 
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+params_guess_2 <- c(250,11,11,30,30)
+optim_params_2 <- optim_par(params_guess_2, 
+                                  data_2[[2]], #training load of one athlete
+                                  data_2[[3]], #actual performance of one athlete
+)
+
+perf <- invariant_perf(optim_params_2, data_2[[2]])
+tib_2 <- tibble::tibble(
+  "day" = data_2[[1]],
+  "predicted_performance" = perf, 
+  "actual_performance" = data_2[[3]] 
+)
+
+plot_2 <- ggplot(tib_2, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance)) +
+  labs(x = "Day",
+       y = "Predicted Performance",
+       title = "Banister model on Swiming Data ") +
+  theme(axis.text=element_text(size=24),
+        axis.title=element_text(size=32),
+        title = element_text(size=32))
+
+plot_2
+```
+
+We can see that the model works well in some places and misses in other places. 
+
+## Time-Varying Model
+We can extend this model using recursive least squares. Looking at the model:
+
+$$
+P(n)=p_0+\overbrace{k_1\sum_{i=0}^{n-1}e^{-(n-i)/\tau_1}w(i)}^{\text{PTE}}-\overbrace{k_2\sum_{i=0}^{n-1}e^{-(n-i)/\tau_2}w(i)}^{\text{NTE}}
+$$
+if we are given $\tau_1$ and $\tau_2$, then both sums are constants, say $C_1$ and $C_2$.
+So then
+$$
+P(n) = p_0+C_1k_1+C_2k_2
+$$
+is a linear funciton of $k_1$ and $k_2$. 
+
+## The algorithm, roughly
+(1) Do LS for choices of $\tau_1$ and $\tau_2$, 
+(2) Choose the minimum. 
+
+My research began as implementing this in R. 
+
+## Time varying model on real dataset 2
+Appling to real dataset before
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+
+perf_RLS_2 <- RLS_predicted_performance(
+    training_load = data_2[[2]],
+    performance = data_2[[3]], 
+    p_0 = 250,
+    alpha = .9, #note this input
+    bounds_T_1 = c(1,50),
+    by_T_1 = 1,
+    bounds_T_2 = c(1,50),
+    by_T_2 = 1,
+    good_output = TRUE
+)
+
+
+RLS_tib_2 <- tibble::tibble(
+  "day" = data_2[[1]],
+  "predicted_performance" =  perf_RLS_2[[1]], #this function returns a list of things, the first one is the predicted performance
+  "actual_performance" = data_2[[3]] 
+)
+
+
+plot_RLS_2 <- ggplot(RLS_tib_2, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance)) +
+  labs(x = "Day",
+       y = "Predicted Performance",
+       title = "Time Varying Model on Swiming Data ") +
+   theme(axis.text=element_text(size=24),
+        axis.title=element_text(size=32),
+        title = element_text(size=32))
+plot_RLS_2
+
+```
+There is a bit of a burn-in period, but it interpolates the performance better
+than the previous model. 
+
+## Limitations 
+While this does help solve (1) it introduces its own problems, 
+
+(1) The parameter vary way to much
+
+(2) We cannot use this to predict the taper time
+
+(3) The burn-in period is not desirable
+
+## Conclusions
+- The original model works in some cases
+- The new model works in some cases but not all
+- The new model cannot extract the parameters
+
+## Big Picture
+- Since the origional model works well, the parameters only have to vary by a little 
+bit. 
+- Implement a new slow time-varying model
+
+
+
+
+
+
