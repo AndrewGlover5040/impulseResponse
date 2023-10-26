@@ -33,7 +33,7 @@ load_all() ###The original way wasn't working.
 In this Vignette, we will give a brief literature review of the Banister Impulse-Response model, a description of the model, and then a demonstration of the functions in this package. There have been two versions of the impulse-response model discussed in the literature, the original in which the parameters are time-invariant, and a version that was developed later, in which the parameters are allowed to vary over time. The main functions in this package are `invariant_perf` and `RLS_predicted_performance`, which are designed to model both the time-invariant and time-variant versions, respectively, which estimate the model parameters given training data. 
 
 ## Literature Review
-The Impulse-Response model was introduced in 1975 by Banister et al[@Banister:1975] to model athletic performance from training load. It has been used over the years to when the performance ability at a specific time can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. [@Mujika:1996; @Thomas:2008; @Busso:1994; @Busso:1997]. 
+The Impulse-Response model was introduced in 1975 by Banister et al [@Banister:1975] to model athletic performance from training load. It has been used over the years to when the performance ability at a specific time can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw. [@Mujika:1996; @Thomas:2008; @Busso:1994; @Busso:1997]. 
 
 To our knowledge, the time-invariant model was first introduced in 1997 by Busso [@Busso:1997]. Vermeire et al. provide a good explanation of the limitations of this model [@Vermeire:2022]. 
 
@@ -235,7 +235,7 @@ plot_data_2
 The model interpolates the points correctly -- there is very little bias --
 but there is a lot of variance. This is a classic example of the bias-variance tradeoff.
 
-#Bibliography
+# Bibliography
 
 
 
