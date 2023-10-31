@@ -15,7 +15,7 @@
 #' @returns A numerical vector the length of `day`.
 #' @export
 #'
-invariant_perf <- function(params,training_load,day=length(training_load)){
+invariant_perf <- function(params, training_load, day=length(training_load)){
   p_0=params[[1]]; k_1=params[[2]]; k_2=params[[3]]; tau_1=params[[4]]; tau_2=params[[5]]
   out=c(rep(0,day))
   T_1=0; T_2=0
@@ -49,7 +49,7 @@ SSE <- function(
     performance,
     day = length(training_load)
 ){
-  Pred <- invariant_perf(params,training_load,day)
+  Pred <- invariant_perf(params, training_load, day)
   #Performance=Performance[1:day-1]
   error <- performance[!is.na(performance)] - Pred[which(!is.na(performance))]
   error <- error[!is.na(error)]
