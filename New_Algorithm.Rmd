@@ -1,0 +1,200 @@
+---
+title: "New Algorithm"
+author: "Andrew Glover"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+devtools::load_all()
+```
+
+## Libraries
+
+```{r}
+library(tibble)
+library(ggplot2)
+```
+
+
+We are going to assume that we know $p_0$ exactly. That way it is either 
+a data point in actual performance, with no cost, or we don't count it as 
+an actual performance. 
+```{r}
+lim_func <- function(k_1, k_2, tau_1, tau_2) {
+  k_1/(1-exp(-1/tau_1))-k_2/(1-exp(-1/tau_2))
+}
+
+params_dist <- function(params_1, params_2) {
+  # ignore params_1[[1]] since it is just the inital value
+  abs(lim_func(params_1[[2]], params_1[[3]], params_1[[4]], params_1[[5]]) -
+        lim_func(params_2[[2]], params_2[[3]], params_2[[4]], params_2[[5]])
+      )
+}
+
+cost_perf <- function(params,
+                      old_params,
+                      training_load,
+                      obs_perf,
+                      lambda = 1
+                      ) {
+  sqrt(SSE(params, training_load, obs_perf)) + # the SSE fits the suggested parameters
+    # against the old data, might add a forgetting factor to localize the fitting
+    lambda*params_dist(params, old_params) 
+  #####################################################
+  # might add some forgeting factor here can do later
+  #####################################################
+}
+
+# params matrix in order k_1, k_2, tau_1, tau_2
+
+
+
+update_params <- function(old_params, 
+                          training_load,
+                          sub_obs_perf,
+                          bounds_type = list("test"),
+                          lambda = 1 
+                          ) {
+  
+  if(bounds_type == "test") {
+    params_matrix <<- expand.grid(p_0 = 500,
+                                  k_1 = c(1,2,3,4),
+                                  k_2 = c(2,4,6,8),
+                                  tau_1 = c(5:35),
+                                  tau_2 = c(5:35))
+    
+  }
+  cost_vec <- apply(params_matrix,
+                  1, 
+                  cost_perf,
+                  old_params = old_params,
+                  training_load = training_load,
+                  obs_perf = sub_obs_perf,
+                  lambda = lambda
+                  )
+  
+  out_list <- list()
+  out_list$opt_params <- params_matrix[which(cost_vec==min(cost_vec)), ]
+  out_list$cost <- cost_vec
+  out_list$mult_mins <- FALSE
+  if (length(which(cost_vec==min(cost_vec)))>1) {
+    out_list$mult_mins <- list(TRUE, which(cost_vec==min(cost_vec)))
+  }
+  return(out_list)
+}
+
+new_pred_perf <- function(init_params,
+                          training_load,
+                          obs_perf,
+                          bounds_type = list("test"),
+                          lambda = 1) {
+  curr_params <- init_params 
+  ####
+  # curr_params take form c(k_1, k_2, tau_1, tau_2)
+  ###
+  days <- length(training_load)
+  perf_out <- c(rep(curr_params[[1]], days + 1))
+  T_1 <- 0; T_2 <- 0
+  for(i in 2:(length(obs_perf) + 1)) {
+    # update params if there is new information
+    if (is.na(obs_perf[[i-1]]) == FALSE) {
+     curr_params <- update_params(
+        old_params = curr_params,
+        training_load = training_load,
+        sub_obs_perf = obs_perf[1:(i-1)],  # the subset up to observation
+        bounds_type = bounds_type,
+        lambda = lambda
+      )$opt_params
+    } else {} # pass
+    
+    T_1 <- exp(-1/curr_params[[4]])*T_1 + training_load[[i-1]] 
+    # training load index is i-1 since i starts at 2
+    T_2 <- exp(-1/curr_params[[5]])*T_2 + training_load[[i-1]]
+    perf_out[[i]] <- curr_params[[1]] + curr_params[[2]]*T_1 - curr_params[[3]]*T_2 
+  }
+  return(perf_out)
+} 
+```
+
+Inputs:
+- Actual performance, vector of length $n$
+- Training load, vector of length $n$
+- Initial guess of parameters, vector of length $4$
+- $p_0$, a number
+- Ranges to search over for each variable, The length of these vectors 
+multiply to $\ell$
+
+Outputs, 
+
+Algorithm:
+(1) Accept inputs
+(2) Define 
+- `pred_perf`, a vector of length $n+1$, initalized with $p_0$
+- `cur_param`, a vector of length $4$, used to keep track of the parameters used
+on each step
+- `cost`, a number to keep track of the cost function
+
+For $i = 0,1\hdots, n$
+If Actual Performance at $i$ is equal to $NA$,
+  vvapply `curr_param` to predicted performance recursive equation to get predicted 
+  performance
+  set `pred_perf[[i]]` to be this predicted performance
+
+## Testing New Algorthm
+```{r, warning = FALSE}
+
+
+
+obs_perf_test <- c(rep(NA, 19), 100, rep(NA, 19), 475, 
+              rep(NA,19), 730, rep(NA, 19), 860, 
+              rep(NA, 19), 900)
+
+test_tr <- c(rep(100, 100))
+test_params <- c(500, 1, 2, 25, 10)
+
+SSE(test_params, test_tr, obs_perf_test)
+
+test_new_perf <- new_pred_perf(
+  init_params = test_params,
+  training_load = test_tr ,
+  obs_perf = obs_perf_test,
+  lambda = 2.5 # found this value by trial and error
+)
+
+true_model <- invariant_perf(c(500, 1, 2, 25, 10), training_load = test_tr)
+
+####################################
+# add p_0 to invariand_perf, b/c (star)
+####################################
+
+
+data_test <- tibble(
+  "day" = c(0:length(test_tr)),
+  "pred_perf" = test_new_perf,
+  "obs_perf" = c(NA, obs_perf_test),
+  "true_perf" = c(500, true_model) # (star)
+)
+
+
+test_plot <- ggplot(data = data_test, aes(x = day)) + 
+  geom_line(aes(y = pred_perf, color = "Ped")) + 
+  geom_point(aes(y = obs_perf, color = "obs")) +
+  geom_point(aes(y = true_perf, color = "act")) +
+  labs(x = "Day",
+       y = "Performance",
+       title = "First go around of new algorithm") 
+
+test_plot
+```
+This looks promising
+
+
+  
+
+
+
+
+
+
