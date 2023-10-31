@@ -41,6 +41,9 @@ cost_perf <- function(params,
                       ) {
   sqrt(SSE(params, training_load, obs_perf)) + # the SSE fits the suggested parameters
     # against the old data, might add a forgetting factor to localize the fitting
+    ## added the square root because it seems that, if it is not there, 
+    ## the SSE term will dominate the params_dist term for large( like 5) terms no 
+    ## matter what the lamda term is
     lambda*params_dist(params, old_params) 
   #####################################################
   # might add some forgeting factor here can do later
@@ -144,26 +147,21 @@ If Actual Performance at $i$ is equal to $NA$,
 
 ## Testing New Algorthm
 ```{r, warning = FALSE}
-
-
+days_test <- 200
+test_tr <- c(rep(100, days_test))
+test_params <- c(500, 1, 2, 25, 10)
+true_model <- invariant_perf(c(500, 1, 2, 25, 10), training_load = test_tr)
 
 obs_perf_test <- c(rep(NA, 19), 100, rep(NA, 19), 475, 
               rep(NA,19), 730, rep(NA, 19), 860, 
-              rep(NA, 19), 900)
+              rep(NA, 19), 900, rep(NA, days_test - 100))
 
-test_tr <- c(rep(100, 100))
-test_params <- c(500, 1, 2, 25, 10)
-
-SSE(test_params, test_tr, obs_perf_test)
-
-test_new_perf <- new_pred_perf(
+test_pred_perf <- new_pred_perf(
   init_params = test_params,
   training_load = test_tr ,
   obs_perf = obs_perf_test,
   lambda = 2.5 # found this value by trial and error
 )
-
-true_model <- invariant_perf(c(500, 1, 2, 25, 10), training_load = test_tr)
 
 ####################################
 # add p_0 to invariand_perf, b/c (star)
@@ -172,14 +170,14 @@ true_model <- invariant_perf(c(500, 1, 2, 25, 10), training_load = test_tr)
 
 data_test <- tibble(
   "day" = c(0:length(test_tr)),
-  "pred_perf" = test_new_perf,
+  "pred_perf" = test_pred_perf,
   "obs_perf" = c(NA, obs_perf_test),
   "true_perf" = c(500, true_model) # (star)
 )
 
 
 test_plot <- ggplot(data = data_test, aes(x = day)) + 
-  geom_line(aes(y = pred_perf, color = "Ped")) + 
+  geom_line(aes(y = pred_perf, color = "pred")) + 
   geom_point(aes(y = obs_perf, color = "obs")) +
   geom_point(aes(y = true_perf, color = "act")) +
   labs(x = "Day",
@@ -188,10 +186,44 @@ test_plot <- ggplot(data = data_test, aes(x = day)) +
 
 test_plot
 ```
-This looks promising
+This looks promising. The new curve gets close to but is not the exact curve, 
+suggesting that it has the capability to not over or under fit. 
 
 
-  
+
+
+
+## applying to real data
+```{r}
+real_data <- data_2
+day_vec_real <- real_data[[1]]
+training_load_real <- real_data[[2]]
+obs_perf_real <- real_data[[3]]
+init_params_real <- c(262, .1, .1, 11, 11)
+obs_new_alg <- new_pred_perf(
+  init_params_real,
+  training_load_real,
+  obs_perf_real,
+  lambda = 1
+)
+
+data_real <- tibble(
+  "day" = c(0, day_vec_real),
+  "pred" = obs_new_alg,
+  "obs" = c(NA, obs_perf_real)
+)
+
+real_plot <- ggplot(data = data_real, aes(x = day)) + 
+  geom_line(aes(y = pred, color = "pred")) + 
+  geom_point(aes(y = obs, color = "obs")) +
+  labs(x = "Day",
+       y = "Performance",
+       title = "First go around of new algorithm") 
+
+real_plot
+
+```
+
 
 
 
