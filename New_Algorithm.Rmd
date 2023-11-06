@@ -1,22 +1,37 @@
 ---
-title: "New Algorithm"
+title: "New_Algorithm"
 author: "Andrew Glover"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(purl = FALSE)
 ```
 
 ## Setup
-```{r, message=FALSE}
+### Loading Package Functions
+```{r loading package functions, message = FALSE}
+devtools::load_all() 
+```
+
+### Libraries Used
+```{r, message = FALSE, purl = TRUE}
 library(tibble)
 library(ggplot2)
 library(magrittr)
 library(dplyr) 
 library(patchwork)
-devtools::load_all() # loads the functions from the package
+# loads the functions from the package
 ```
+
+```{r purling, eval=FALSE, include=FALSE}
+#### run this to purl the r code to the /R file, this seems to not be able to run with the knit
+knitr::purl(input = "New_Algorithm.Rmd",
+            output = stringr::str_c(rprojroot::find_rstudio_root_file(),"/R/New_Algorithm.R") #puts file in /R)
+            ) 
+
+``` 
 
 We are going to assume that we know $p_0$ exactly. That way it is either 
 a data point in actual performance, with no cost, or we don't count it as 
@@ -25,7 +40,7 @@ an actual performance.
 # Algorithm Functions:
 
 ## Helpers
-```{r helpers}
+```{r helpers, purl = TRUE}
 # function inside of parameter distance
 lim_func <- function(k_1, k_2, tau_1, tau_2) {
   k_1/(1-exp(-1/tau_1))-k_2/(1-exp(-1/tau_2))
@@ -136,7 +151,7 @@ update_params_opt <- function(old_params,
 ```
 
 ## The Important Function
-```{r algorithm function}
+```{r algorithm function, purl = TRUE}
 new_pred_perf <- function(init_params,
                           training_load,
                           obs_perf,
