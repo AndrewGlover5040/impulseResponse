@@ -40,7 +40,7 @@ params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
 #' @export
 #'
 #' @examples
-perf_tv <- function(p_0, params_mat, training_load) {
+mat_to_perf <- function(p_0, params_mat, training_load) {
   days <- nrow(params_mat)
   perf_out <- c(rep(NA, days))
   T_1 <- 0; T_2 <- 0
@@ -54,7 +54,7 @@ perf_tv <- function(p_0, params_mat, training_load) {
 
 
 ## ----purl = TRUE-----------------------------------------------------------------------------------------------------------------------------------------
-perf_plot <- function(p_0,
+perf_tv <- function(p_0,
                       k_1,
                       tau_1,
                       k_2,
@@ -79,7 +79,7 @@ perf_plot <- function(p_0,
                            tau_2,
                            change_days,
                            days)
-  modeled_performance <- perf_tv(p_0, tmp_matrix, training_load)
+  modeled_performance <- mat_to_perf(p_0, tmp_matrix, training_load)
   tmp_data <- tibble(
     "day" = c(0:days),
     "performance" = c(p_0, modeled_performance),
@@ -96,7 +96,10 @@ perf_plot <- function(p_0,
   #   scale_color_manual("Legend",
   #                      values = c("lim" = "#e31a1c", # this color comes from the theme "Paired"
   #                                 "perf" = "black"))
-  plot
+  out_list <- list()
+  out_list$plot <- plot
+  out_list$performance <- modeled_performance
+  return(out_list)
 }
 
 

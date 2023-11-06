@@ -7,7 +7,7 @@ output: pdf_document
 # setup
 ```{r setup, include=FALSE, purl = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(purl=FALSE)
+knitr::opts_chunk$set(purl = FALSE)
 ```
 
 ```{r purling, eval=FALSE, include=FALSE, purl=FALSE}
@@ -68,7 +68,7 @@ params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
 #' @export
 #'
 #' @examples
-perf_tv <- function(p_0, params_mat, training_load) {
+mat_to_perf <- function(p_0, params_mat, training_load) {
   days <- nrow(params_mat)
   perf_out <- c(rep(NA, days))
   T_1 <- 0; T_2 <- 0
@@ -83,7 +83,7 @@ perf_tv <- function(p_0, params_mat, training_load) {
 
 
 ```{r, purl = TRUE}
-perf_plot <- function(p_0,
+perf_tv <- function(p_0,
                       k_1,
                       tau_1,
                       k_2,
@@ -108,7 +108,7 @@ perf_plot <- function(p_0,
                            tau_2,
                            change_days,
                            days)
-  modeled_performance <- perf_tv(p_0, tmp_matrix, training_load)
+  modeled_performance <- mat_to_perf(p_0, tmp_matrix, training_load)
   tmp_data <- tibble(
     "day" = c(0:days),
     "performance" = c(p_0, modeled_performance),
@@ -125,7 +125,10 @@ perf_plot <- function(p_0,
   #   scale_color_manual("Legend",
   #                      values = c("lim" = "#e31a1c", # this color comes from the theme "Paired"
   #                                 "perf" = "black"))
-  plot
+  out_list <- list()
+  out_list$plot <- plot
+  out_list$performance <- modeled_performance
+  return(out_list)
 }
 
 ```
@@ -168,34 +171,34 @@ This is a time-invariant plot with our new function, to check that things are wo
 
 
 ```{r}
-perf_plot(p_0 = 500,
+perf_tv(p_0 = 500,
           k_1 = 1,
           tau_1 = 25, 
           k_2 = 2, 
           tau_2 = 10,
           days = 100,
-          training_stim = list("constant", 100)) +
-perf_plot(p_0 = 500,
+          training_stim = list("constant", 100))$plot +
+perf_tv(p_0 = 500,
           k_1 = 2,
           tau_1 = 20, 
           k_2 = 4, 
           tau_2 = 15,
           days = 500,
-          training_stim = list("constant", 100))
+          training_stim = list("constant", 100))$plot
 
 
 ```
 
 Addinng one change date
 ```{r}
-perf_plot(p_0 = 500,
+perf_tv(p_0 = 500,
           k_1 = c(1, 2),
           tau_1 = c(25, 20), 
           k_2 = c(2, 4), 
           tau_2 = c(10, 15) ,
           change_days = c(100),
           days = 500,
-          training_stim = list("constant", 100))
+          training_stim = list("constant", 100))$plot
 ```
 Notice that this doesn't look like the first set of parameters for the first 100
 days, and then the other distribution for the rest of the days. Even though it looks
@@ -203,14 +206,14 @@ like a new curve at the change day, it is reflecting a change of the parameters.
 
 Adding an additional change dage
 ```{r}
-perf_plot(p_0 = 500,
+perf_tv(p_0 = 500,
           k_1 = c(1,2,3),
           tau_1 = c(20, 25, 30), 
           k_2 = c(2, 4, 6), 
           tau_2 = c(5,10, 15),
           change_days = c(100, 200), 
           days = 500,
-          training_stim = list("constant", 100))
+          training_stim = list("constant", 100))$plot
 ```
 
 
