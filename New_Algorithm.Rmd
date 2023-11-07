@@ -107,7 +107,10 @@ min_params <- function(params_matrix,
         # for a lot of the sets of parameters, 
         # the condition should trigger on the first few data points
       }
-      if (j == n) {
+      if (j == n && min_cost > sqrt(SSE_i/n) + lambda*params_dist_i) {
+        # the second condition helps with stability, if two different sets
+        # of parameters have the same cost -- namely when they both have 0 cost --
+        # we will pick our previous point
         min_cost <- sqrt(SSE_i/n) + lambda*params_dist_i
         min_params <- params_i
       
@@ -229,10 +232,6 @@ new_pred_perf <- function(init_params,
   return(out_list)
 } 
 ```
-If `lambda` is equal to $0$, then I think some weird underflow garbage happens
-and the output is wack, but this seems to work for very very very small values 
-of `lambda`. I should try to fix this later. 
-
 ## Algorithm Pseudo-code, not complete
 Inputs:
 
@@ -264,7 +263,9 @@ If Actual Performance at $i$ is equal to $NA$,
 
 # Testing New Algorthm on simulated data
 ## basic testing
-```{r simulation 1, warning=FALSE}
+As a sanity check, we give the algorithm the true values of the parameters
+as the initial parameters, tested aginst the the actual performance with no noise
+```{r sanity check, warning=FALSE}
 set.seed(2)
 days_test <- 200
 perf_sim_1 <- c(500, perf_tv(p_0 = 500,
@@ -279,7 +280,7 @@ noise_fn <- function(x,  sd){
   x+rnorm(1, mean = 0, sd = sd)
 }
 
-perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 100)
+# perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
 
 # this is one off
 samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
@@ -299,10 +300,60 @@ model_perf$perf_plot
 model_perf$params_plots
 
 ```
+This checks out. It has passed the sanity check. The algorithm gives the same 
+resutls no matter what the value of `lambda` is.
+ 
 
+## adding noise
+Running the same simulation with gaussian noise to the simulated performance, 
+with standard deviation of $20$. We will see that increasing lambda smoothes 
+out the performance curves. This first simulation is with `lambda = 0` which 
+just finds the minimum parameters with respect to SSE. 
+```{r noise simulation 1}
+set.seed(5)
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
+samp_index <- c(sample(c(1:100), 25), sample(c(101:days_test), 10))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+}
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  lambda = 0
+)
+model_perf$perf_plot 
+model_perf$params_plots
+```
+This kind of wanders off
+
+```{r noise simulation 2}
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  lambda = .1
+)
+model_perf$perf_plot 
+model_perf$params_plots
+```
+The wandering is fixed when we introduce some penalty for the distance function
+```{r noise simulation 3}
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  lambda = .5
+)
+model_perf$perf_plot 
+model_perf$params_plots
+```
 ## More complicated simulation 
-Right now, the algorthm cannot handle this case. 
-```{r simulation 2}
+Working on simulating a situation where the parameter change over time, but 
+the simulated perforamance level is not realistic. Right now, the algorthm 
+cannot handle this case. 
+```{r time-varying simulation 1}
 set.seed(1)
 days_test <- 500
 perf_sim_1 <- c(500, perf_tv(p_0 = 500,
@@ -334,9 +385,9 @@ model_perf_2 <- new_pred_perf(
 model_perf_2$perf_plot
 model_perf_2$params_plots
 ```
-It does a pretty bad job. 
-
-
+It does a pretty bad job. This is because the algorithm, at every new data point, 
+tries to fit the best Time-*Invariant* curve. In this situation, all of the 
+Time-Invariant functions don't fit well when the parameters first change. 
 
 # Applying to Real Data
 This is a work in progress. Right now, the algorithm cannot handle this case
