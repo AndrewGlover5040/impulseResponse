@@ -22,8 +22,8 @@ invariant_perf <- function(params, training_load, day=length(training_load)){
   coef_1=exp(-1/tau_1)
   coef_2=exp(-1/tau_2)
   for(t in 1:day){
-    T_1=coef_1*(T_1)+training_load[[t]]
-    T_2=coef_2*(T_2)+training_load[[t]]
+    T_1=coef_1*(T_1+training_load[[t]])
+    T_2=coef_2*(T_2+training_load[[t]])
     out[[t]]=p_0+k_1*T_1-k_2*T_2
   }
   return(out)

@@ -45,12 +45,14 @@ mat_to_perf <- function(p_0, params_mat, training_load) {
   perf_out <- c(rep(NA, days))
   T_1 <- 0; T_2 <- 0
   for (i in 1:days) {
-    T_1 <- exp(-1/params_mat[i, "tau_1"])*T_1 + training_load[[i]]
-    T_2 <- exp(-1/params_mat[i, "tau_2"])*T_2 + training_load[[i]]
+    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + training_load[[i]])
+    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + training_load[[i]])
     perf_out[[i]] <- p_0 + params_mat[i, "k_1"]*T_1 - params_mat[i, "k_2"]*T_2 
   }
   return(perf_out)
 }
+
+
 
 
 ## ----purl = TRUE-----------------------------------------------------------------------------------------------------------------------------------------
@@ -70,8 +72,8 @@ perf_tv <- function(p_0,
     k <- length(k_1)
     
     # See justification for this below
-    limit <- p_0 + training_stim[[2]]*k_1[[k]]/(1-exp(-1/tau_1[[k]])) -
-      training_stim[[2]]*k_2[[k]]/(1-exp(-1/tau_2[[k]])) 
+    limit <- p_0 + training_stim[[2]]*k_1[[k]]*exp(-1/tau_1[[k]])/(1-exp(-1/tau_1[[k]])) -
+      training_stim[[2]]*k_2[[k]]*exp(-1/tau_2[[k]])/(1-exp(-1/tau_2[[k]])) 
   }
   tmp_matrix <- params_mat(k_1,
                            tau_1,
@@ -87,7 +89,7 @@ perf_tv <- function(p_0,
   )
   
   plot <- ggplot(tmp_data, aes(x = day)) +
-    geom_point(aes(y = performance, color = "perf")) +
+    geom_point(aes(y = performance, color = "perf")) 
   if (lim == TRUE){
      plot <- plot + geom_line(aes(y = limit, color = "lim"))
   }

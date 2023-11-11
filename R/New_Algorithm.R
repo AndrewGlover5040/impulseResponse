@@ -1,7 +1,18 @@
+## ----message = FALSE, purl = TRUE------------------------------------------------------------------------------------------------------------------------
+library(tibble)
+library(ggplot2)
+library(magrittr)
+library(dplyr) 
+library(patchwork)
+# loads the functions from the package
+
+
+
+
 ## ----helpers, purl = TRUE--------------------------------------------------------------------------------------------------------------------------------
 # function inside of parameter distance
 lim_func <- function(k_1, k_2, tau_1, tau_2) {
-  k_1/(1-exp(-1/tau_1))-k_2/(1-exp(-1/tau_2))
+  k_1*exp(-1/tau_1)/(1-exp(-1/tau_1))-k_2*exp(-1/tau_2)/(1-exp(-1/tau_2))
 }
 
 # computes "parameter distance"
@@ -54,8 +65,8 @@ min_params <- function(params_matrix,
     j <- 0
     for (new_index in obs_indexes) {
       for (t in lower_index:new_index) {
-        T_1 <- coef_1*(T_1) + training_load[[t]]
-        T_2 <- coef_2*(T_2) + training_load[[t]]
+        T_1 <- coef_1*(T_1 + training_load[[t]])
+        T_2 <- coef_2*(T_2 + training_load[[t]])
       }
       SSE_i <- SSE_i + (p_0 + k_1*T_1 - k_2*T_2 - obs_perf[[new_index]])^2
       j <- j + 1
@@ -65,7 +76,10 @@ min_params <- function(params_matrix,
         # for a lot of the sets of parameters, 
         # the condition should trigger on the first few data points
       }
-      if (j == n) {
+      if (j == n && min_cost > sqrt(SSE_i/n) + lambda*params_dist_i) {
+        # the second condition helps with stability, if two different sets
+        # of parameters have the same cost -- namely when they both have 0 cost --
+        # we will pick our previous point
         min_cost <- sqrt(SSE_i/n) + lambda*params_dist_i
         min_params <- params_i
       
@@ -148,9 +162,9 @@ new_pred_perf <- function(init_params,
 
     } else {
     } # pass
-    T_1 <- exp(-1 / curr_params[[4]]) * T_1 + training_load[[i]]
+    T_1 <- exp(-1 / curr_params[[4]]) * (T_1 + training_load[[i]])
     # training load index is i-1 since i starts at 2
-    T_2 <- exp(-1 / curr_params[[5]]) * T_2 + training_load[[i]]
+    T_2 <- exp(-1 / curr_params[[5]]) * (T_2 + training_load[[i]])
     perf_out[[i+1]] <-
       curr_params[[1]] + curr_params[[2]] * T_1 - curr_params[[3]] * T_2
     cost_vec[[i]] <- curr_cost 
