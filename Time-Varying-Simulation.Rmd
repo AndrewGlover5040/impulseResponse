@@ -73,16 +73,174 @@ mat_to_perf <- function(p_0, params_mat, training_load) {
   perf_out <- c(rep(NA, days))
   T_1 <- 0; T_2 <- 0
   for (i in 1:days) {
-    T_1 <- exp(-1/params_mat[i, "tau_1"])*T_1 + training_load[[i]]
-    T_2 <- exp(-1/params_mat[i, "tau_2"])*T_2 + training_load[[i]]
+    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + training_load[[i]])
+    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + training_load[[i]])
     perf_out[[i]] <- p_0 + params_mat[i, "k_1"]*T_1 - params_mat[i, "k_2"]*T_2 
   }
   return(perf_out)
 }
 ```
 
+## A note on recursive equations: 
+All of the time-invariant models here rely on the following recursion equations:
 
-```{r, purl = TRUE}
+$$
+p(t) = p_0+k_1\cdot g(t) - k_2\cdot h(t)
+$$
+where $g(0)=h(0)=0$ and
+$$
+g(i) = e^{-1/\tau_1}\big(g(i-1) + w(i)\big),~~~ h(i) = e^{-1/\tau_2}\big(g(i-1) + w(i)\big)
+$$
+We want to have recursive equations that allow the parameters to change over time.
+Breaking down either the fitness or the fatigue term in the model, we get that
+$$
+\text{Fitness}(t) = k_1\sum_{i=0}^{t-1}e^{t-i}w(i)=k_1e^{-1/\tau_1}w(t)+k_1e^{-2/\tau_1}w(t-1)+\dots +k_1e^{t/\tau_1}w(0) 
+$$
+Lets say that at time $t_{\text{new}}$, $k_1$ changes to $k_\text{new}$ and 
+$\tau_1$ changes to $\tau_\text{new}$. We would expect that the new model looks 
+something like
+$$
+\text{Fitness}(t) = k_{new}e^{-1/\tau_\text{new}}w(t)+\dots + k_\text{new}e^{-(t-t_\text{new})/\tau_\text{new}}w(t_\text{new})+k_\text{1}e^{-(t-t_\text{new})/\tau_\text{new}-1/\tau_1}w(t_\text{new}-1)+\dots +
+k_1e^{-(t-t_\text{new})/\tau_\text{new}-t_\text{new}/\tau_1}w(0) 
+$$
+
+So, I propose a new model for performance:
+$$
+p(t) = p_0+\sum_{i=0}^{t-1}k_1^i\exp\left(-\sum_{j=i}^t(\tau_1^j)^{-1}\right)w(i) + \sum_{i=1}^{t-1}k_2^i\exp\left(-\sum_{j=i}^t(\tau_2^j)^{-1}\right)
+$$
+where the superscript in the parameters indicates the parameter to be used for
+that day, i.e. $k_1^i$ indicates the $k_1$ parameter on the $i$th day. 
+
+I made a naieve implementation of the time varying model, before I wrote the above
+model for performance down. The code below 
+```{r include = TRUE}
+mat_to_perf_old <- function(p_0, params_mat, training_load) {
+  days <- nrow(params_mat)
+  perf_out <- c(rep(NA, days))
+  T_1 <- 0; T_2 <- 0
+  for (i in 1:days) {
+    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + training_load[[i]])
+    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + training_load[[i]])
+    perf_out[[i]] <- p_0 + params_mat[i, "k_1"]*T_1 - params_mat[i, "k_2"]*T_2 
+  }
+  return(perf_out)
+}
+```
+fails because it would instead calculates this
+$$
+\text{Fitness}(t) = k_\text{new}e^{-1/\tau_\text{new}}w(t)+\dots + k_\text{new}e^{-(t-t_\text{new})/\tau_\text{new}}w(t_\text{new})+k_\text{new}e^{-(t-t_\text{new})/\tau_\text{new}-1/\tau_1}w(t_\text{new}-1)+\dots +
+k_\text{new}e^{-(t-t_\text{new})/\tau_\text{new}-t_\text{new}/\tau_1}w(0) 
+$$
+Insead of what we want. In works it goes back and changes the $k_1$ to 
+$k_\text{new}$ on the previous days before the model switched to $k_new$.
+
+The old implementation relies on this recursive form of the model:
+$$
+p(t) = p_0 +k_1^tg(t)-k_2^th(t)
+$$
+
+the recursive equations of $g(0)=h(0)=0$ and 
+$$
+g(i) = e^{-1/\tau_1}(g(i-1)+w(i))~~h(i) = e^{-1/\tau_2}(h(i-1)+w(i))
+$$
+
+What happens in practice with this old recursive equation is that the model 
+jump very rapidly when the parameteters are changed. 
+```{r, include = FALSE}
+perf_tv_old <- function(p_0,
+                      k_1,
+                      tau_1,
+                      k_2,
+                      tau_2,
+                      change_days = NULL,
+                      days,
+                      training_stim,
+                      lim = TRUE) {
+  training_load <- c()
+  limit <- 0
+  if (training_stim[[1]] == "constant") {
+    training_load <- c(rep(training_stim[[2]], days))
+    k <- length(k_1)
+    
+    # See justification for this below
+    limit <- p_0 + training_stim[[2]]*k_1[[k]]*exp(-1/tau_1[[k]])/(1-exp(-1/tau_1[[k]])) -
+      training_stim[[2]]*k_2[[k]]*exp(-1/tau_2[[k]])/(1-exp(-1/tau_2[[k]])) 
+  }
+  tmp_matrix <- params_mat(k_1,
+                           tau_1,
+                           k_2,
+                           tau_2,
+                           change_days,
+                           days)
+  modeled_performance <- mat_to_perf_old(p_0, tmp_matrix, training_load)
+  tmp_data <- tibble(
+    "day" = c(0:days),
+    "performance" = c(p_0, modeled_performance),
+    "limit" = c(rep(limit, days + 1))
+  )
+  
+  plot <- ggplot(tmp_data, aes(x = day)) +
+    geom_point(aes(y = performance, color = "perf")) 
+  if (lim == TRUE){
+     plot <- plot + geom_line(aes(y = limit, color = "lim"))
+  }
+ 
+  
+  #   scale_color_manual("Legend",
+  #                      values = c("lim" = "#e31a1c", # this color comes from the theme "Paired"
+  #                                 "perf" = "black"))
+  out_list <- list()
+  out_list$plot <- plot
+  out_list$performance <- modeled_performance
+  return(out_list)
+}
+```
+
+If we plot the performance using this old way with the parameter sets
+
+```{r echo = FALSE}
+data <- data.frame(
+  "k_1" = c(1,2,3, 5, 6),
+  "tau_1" = c(20, 25, 30, 40, 40), 
+  "k_2" = c(2, 4, 6, 8, 10), 
+  "tau_2" = c(5,10, 15, 25, 30),
+  row.names = list("1-100", "101-200", "201-300", "301-400", "401-500")
+)
+data <- data.table::transpose(data)
+colnames(data) <- list("1-100", "101-200", "201-300", "301-400", "401-500")
+row.names(data) <- list("k_1", "k_2", "tau_1", "tau_2")
+
+knitr::kable(data)
+```
+we will get
+```{r echo = FALSE}
+perf_tv_old(p_0 = 500,
+          k_1 = c(1,2,3, 5, 6),
+          tau_1 = c(20, 25, 30, 40, 40), 
+          k_2 = c(2, 4, 6, 8, 10), 
+          tau_2 = c(5,10, 15, 25, 30),
+          change_days = c(100, 200, 300, 400), 
+          days = 500,
+          training_stim = list("constant", 100))$plot
+```
+This method plot the performance in a discontinuous and unnatural way. 
+
+## Improved model
+```{r include = TRUE}
+mat_to_perf <- function(p_0, params_mat, training_load) {
+  days <- nrow(params_mat)
+  perf_out <- c(rep(NA, days))
+  T_1 <- 0; T_2 <- 0
+  for (i in 1:days) {
+    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + params_mat[i, "k_1"]*training_load[[i]])
+    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + params_mat[i, "k_2"]*training_load[[i]])
+    perf_out[[i]] <- p_0 + T_1 - T_2 
+  }
+  return(perf_out)
+}
+```
+
+```{r,include = FALSE, purl = TRUE}
 perf_tv <- function(p_0,
                       k_1,
                       tau_1,
@@ -99,8 +257,8 @@ perf_tv <- function(p_0,
     k <- length(k_1)
     
     # See justification for this below
-    limit <- p_0 + training_stim[[2]]*k_1[[k]]/(1-exp(-1/tau_1[[k]])) -
-      training_stim[[2]]*k_2[[k]]/(1-exp(-1/tau_2[[k]])) 
+    limit <- p_0 + training_stim[[2]]*k_1[[k]]*exp(-1/tau_1[[k]])/(1-exp(-1/tau_1[[k]])) -
+      training_stim[[2]]*k_2[[k]]*exp(-1/tau_2[[k]])/(1-exp(-1/tau_2[[k]])) 
   }
   tmp_matrix <- params_mat(k_1,
                            tau_1,
@@ -116,7 +274,7 @@ perf_tv <- function(p_0,
   )
   
   plot <- ggplot(tmp_data, aes(x = day)) +
-    geom_point(aes(y = performance, color = "perf")) +
+    geom_point(aes(y = performance, color = "perf")) 
   if (lim == TRUE){
      plot <- plot + geom_line(aes(y = limit, color = "lim"))
   }
@@ -130,24 +288,34 @@ perf_tv <- function(p_0,
   out_list$performance <- modeled_performance
   return(out_list)
 }
-
 ```
 
 
+```{r}
+perf_tv(p_0 = 500,
+          k_1 = c(1,2,3, 5, 6),
+          tau_1 = c(20, 25, 30, 40, 40), 
+          k_2 = c(2, 4, 6, 8, 10), 
+          tau_2 = c(5,10, 15, 25, 30),
+          change_days = c(100, 200, 300, 400), 
+          days = 700,
+          training_stim = list("constant", 100))$plot
+```
 ## Computing the limit of the model
 
 I would like to compute the limit of the predicted performance for the time-invariant model
 Under the assumption of constant training load.
 We have 
 $$
-p(t) = p_0 + k_1\sum_{i=1}^{t-1}e^{\frac{t-i}{\tau_1}}w(i) 
-+ k_2\sum_{i=1}^{t-1}e^{\frac{t-i}{\tau_2}}w(i) 
+p(t) = p_0 + k_1\sum_{i=0}^{t-1}e^{\frac{t-i}{\tau_1}}w(i) 
++ k_2\sum_{i=0}^{t-1}e^{\frac{t-i}{\tau_2}}w(i) 
 $$
-Assume that $w(i)=C$ for all $i$. Note that 
+Assume that $w(i)=C$ for all $i$. This takes the convention that $p_0$ happens 
+on day $0$. Note that 
 
 $$
-\sum_{i=1}^{t-1} e^{\frac{t-i}{\tau_1}} = e^{1/\tau_1}\sum_{i=1}^{t-1}e^{\frac{(t-1)-i}{\tau_1}}=
-e^{1/\tau_1}\left(-1+\sum_{i=0}^{s}\big(e^{-1/\tau_1}\big)^i\right)
+\sum_{i=0}^{t-1} e^{\frac{t-i}{\tau_1}} =
+-1+\sum_{i=0}^{s}\big(e^{-1/\tau_1}\big)^i
 $$
 
 Finding the long-run limit of $p(t)$ then amounts to computing 
@@ -158,11 +326,11 @@ Notice that this is a convergent geometric series, $e^{-1/\tau_1}<1$ when $\tau_
 (which we have assumed). Therefore,
 
 $$
-\sum_{i=1}^{t-1} e^{\frac{t-i}{\tau_1}} = e^{1/\tau_1}\left(-1+\frac{1}{1-e^{-1/\tau_1}}\right) =e^{1/\tau_1}\left(\frac{e^{-1/\tau_1}}{1-e^{-1/\tau_1}}\right)=\frac{1}{1-e^{-1/\tau_1}}
+\sum_{i=0}^{t-1} e^{\frac{t-i}{\tau_1}} = -1+\frac{1}{1-e^{-1/\tau_1}} =\frac{e^{-1/\tau_1}}{1-e^{-1/\tau_1}}
 $$
 Therefore 
 $$
-\lim_{t\rightarrow \infty}p(t) = p_0 + C\left(\frac{k_1}{1-e^{-1/\tau_1}}-\frac{k_2}{1-e^{-1/\tau_2}}\right)
+\lim_{t\rightarrow \infty}p(t) = p_0 + C\left(\frac{k_1e^{-1/\tau_1}}{1-e^{-1/\tau_1}}-\frac{k_2e^{-1/\tau_1}}{1-e^{-1/\tau_2}}\right)
 $$
 This is how we compute the red line in `perf_plot`.
 
@@ -176,14 +344,14 @@ perf_tv(p_0 = 500,
           tau_1 = 25, 
           k_2 = 2, 
           tau_2 = 10,
-          days = 100,
+          days = 200,
           training_stim = list("constant", 100))$plot +
 perf_tv(p_0 = 500,
           k_1 = 2,
           tau_1 = 20, 
           k_2 = 4, 
           tau_2 = 15,
-          days = 500,
+          days = 200,
           training_stim = list("constant", 100))$plot
 
 
@@ -360,7 +528,7 @@ knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),
 
 
 # Generating many performance curves with the same limit and plotting 
-```{r}
+```{r, eval = FALSE}
 set.seed(443)
 C_1 <- round(lim_func(1,25,2,10), digits = 1)
 n <- 100
@@ -384,14 +552,12 @@ for (i in 1:n) {
   same_test_tib[, stringr::str_c("p", i)] <- c(p_0,
                                                perf_tv(
                                                  p_0 = p_0,
-                                                 params_mat = params_mat(
                                                    k_1 = k_1_same[[i]],
                                                    tau_1 = tau_1_same[[i]],
                                                    k_2 = k_2_same[[i]],
                                                    tau_2 = tau_2_same[[i]],
-                                                   days = day
-                                                 ),
-                                                 training_load = training_load
+                                                   days = day,
+                                                 training_stim = list("constant", 100)
                                                ))
 }
 
