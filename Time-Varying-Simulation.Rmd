@@ -33,6 +33,7 @@ devtools::load_all()
 
 # Functions used for analysis 
 
+## Generating the parameters matri
 ```{r Generating the parameters matrix, purl=TRUE}
 params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
   if (length(k_1) == length(tau_1) && 
@@ -57,29 +58,6 @@ params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
 }
 ```
 
-
-```{r Varying Performance, purl = TRUE}
-#' Title
-#'
-#' @param params_mat a n by 4 matrix, where n is the number of days
-#' @param training_load an n dimensional vector 
-#'
-#' @return an n? dimensional vector with the performance
-#' @export
-#'
-#' @examples
-mat_to_perf <- function(p_0, params_mat, training_load) {
-  days <- nrow(params_mat)
-  perf_out <- c(rep(NA, days))
-  T_1 <- 0; T_2 <- 0
-  for (i in 1:days) {
-    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + training_load[[i]])
-    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + training_load[[i]])
-    perf_out[[i]] <- p_0 + params_mat[i, "k_1"]*T_1 - params_mat[i, "k_2"]*T_2 
-  }
-  return(perf_out)
-}
-```
 
 ## A note on recursive equations: 
 All of the time-invariant models here rely on the following recursion equations:
@@ -226,7 +204,7 @@ perf_tv_old(p_0 = 500,
 This method plot the performance in a discontinuous and unnatural way. 
 
 ## Improved model
-```{r include = TRUE}
+```{r include = TRUE, purl = TRUE}
 mat_to_perf <- function(p_0, params_mat, training_load) {
   days <- nrow(params_mat)
   perf_out <- c(rep(NA, days))

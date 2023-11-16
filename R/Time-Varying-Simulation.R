@@ -30,32 +30,29 @@ params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
 }
 
 
-## ----Varying Performance, purl = TRUE--------------------------------------------------------------------------------------------------------------------
-#' Title
-#'
-#' @param params_mat a n by 4 matrix, where n is the number of days
-#' @param training_load an n dimensional vector 
-#'
-#' @return an n? dimensional vector with the performance
-#' @export
-#'
-#' @examples
+
+
+
+
+
+
+
+
+## ----include = TRUE, purl = TRUE-------------------------------------------------------------------------------------------------------------------------
 mat_to_perf <- function(p_0, params_mat, training_load) {
   days <- nrow(params_mat)
   perf_out <- c(rep(NA, days))
   T_1 <- 0; T_2 <- 0
   for (i in 1:days) {
-    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + training_load[[i]])
-    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + training_load[[i]])
-    perf_out[[i]] <- p_0 + params_mat[i, "k_1"]*T_1 - params_mat[i, "k_2"]*T_2 
+    T_1 <- exp(-1/params_mat[i, "tau_1"])*(T_1 + params_mat[i, "k_1"]*training_load[[i]])
+    T_2 <- exp(-1/params_mat[i, "tau_2"])*(T_2 + params_mat[i, "k_2"]*training_load[[i]])
+    perf_out[[i]] <- p_0 + T_1 - T_2 
   }
   return(perf_out)
 }
 
 
-
-
-## ----purl = TRUE-----------------------------------------------------------------------------------------------------------------------------------------
+## ----include = FALSE, purl = TRUE------------------------------------------------------------------------------------------------------------------------
 perf_tv <- function(p_0,
                       k_1,
                       tau_1,
@@ -103,5 +100,4 @@ perf_tv <- function(p_0,
   out_list$performance <- modeled_performance
   return(out_list)
 }
-
 
