@@ -67,7 +67,7 @@ is measured differently with different sports.
 regimen. 
 
 ## Intuition on the model
-Lets just look at the sumin the model. We have
+Lets just look at the sum in the model. We have
 $$
 TE(n) \propto e^{-1/\tau}w(n-1)+e^{-2/\tau}w(n-2)+\dots+e^{-n/\tau}w(0)
 $$
@@ -192,7 +192,6 @@ plot_1 <- ggplot(tib_1, aes(x=day, y=predicted_performance))+
   theme(axis.text=element_text(size=24),
         axis.title=element_text(size=32),
         title = element_text(size=32))
-
 
 plot_1
 ```
