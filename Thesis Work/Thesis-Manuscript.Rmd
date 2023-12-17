@@ -1,0 +1,348 @@
+---
+title: "Thesis Manuscript"
+author: "Andrew Glover"
+date: "December 8, 2023"
+output: 
+  pdf_document:
+    extra_dependencies: ["algorithm2e", "verbatim", "amsmath"]
+fontsize: 12pt
+header-includes: 
+  \usepackage{indentfirst}
+indent: true
+bibliography: vignette.bib 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+devtools::load_all()
+```
+
+```{r libraries, include = FALSE, message = FALSE}
+library(ggedit)
+```
+
+
+# Introduction
+
+One of the major goals of sports science is to maximize athletic performance. A key aspect of this optimization is the training regimen that coaches prescribe an athlete. This training regimen involves training load, such as the exercises performed, and the number of sets and repetitions performed, and the recovery program, including diet and sleep. For some activities, such as running, swimming, power lifting, and shot-put, training load and the performance output has a measurable external component. The quantity Training Load captures the effect of the training on the body, through such methods as measuring VO2 max (the amount of oxygen that is avaiable for use by the body; the higher the V02 max, the more athletically fit the athlete is) for endurance training or a method direct quantification of the training load -- counting weight, reps (how many repetitions to lift the weight), and sets (how many times to perform the given number of reps) -- for resistance based exercises, like power lifting. It logical and correct to expect that sports where training load can be quantified have a quantifiable performance output. The performance for running and swimming can be quantified by the meet time, powerlifting by one rep max (how much weight you can lift one time), and shot put by distance thrown. When modeling the relationship between training load and athletic performance, it is important to choose a model that captures the physiological systems that underly recovery, allowing sports science researchers to use the model to be able to prescribe or inform a training regimen. This approach cannot hope to perfectly be able to capture everything, as there are other important factors to recovery, but it can capture most of the relationship, and almost all in some situations, like elite athletes. The gold standard for this approach is the Banister Fitness Fatigue model. 
+
+
+# Literature Review
+
+The Banister model was introduced in 1975 by Banister et al to model athletic performance from training load [@Banister:1975]. However, this model didn't account for an observed initial dip in the performance, so an additional term accounting for negative effects was added, giving rise to the Banister Fitness-Fatigue model. (Banister 1976). It has been used over the years to when the performance ability at a specific time can be easily quantified, such as swimming, cycling, power lifting, running, and the hammer throw [@Mujika:1996; @Thomas:2008; @Busso:1994; @Busso:1997]. The Banister FF model does have it's limitations. Model stability, the model parameters not being intrepretable, predictive accuracy, and ill-conditioning have been reported [@Hellard:2006; @Ludwig:2019]. Additionally, 
+provide a good explanation of the limitations of this model [@Vermeire:2022]. Previously, there has been a lack of publicly available computational resources for estimating and applying the model. However, Clarke and Skiba give a great introduction and overview of this model and apply it using Excel[@Clarke:2013]. Also, this [blog post](https://wintherperformance.netlify.app/post/banister-model/)
+by Andreas K. Winther applies the model in R, and was helpful in creating some of the code utilized for this project [@web:Winther]. 
+
+
+# Methods
+
+## The Banister Fitness-Fatigue Model
+The Banister Fitness-Fatigue model (BFFM) models athletic performance as a function of training load. Roughly, it says that performance can be modeled as the sum of the ability of the athlete before training begins, the positive effects of training (PTE), and the negative effects of training (NTE). Formally, it is defined as,
+$$
+P(n)=p_0+\overbrace{k_1\sum_{i=0}^{n-1}e^{-(n-i)/\tau_1}w(i)}^{\text{PTE}}-\overbrace{k_2\sum_{i=0}^{n-1}e^{-(n-i)/\tau_2}w(i)}^{\text{NTE}}
+$$
+where $p_0$ is the initial performance, $w(i)$ is the training load on day $i$.  $k_1,~k_2,~\tau_1,$ and $\tau_2$ are real, positive constants. In this model we use the convention that $p_0$ occurs on day $0$. For computational ease, $P(n)$ can be written in terms of recursion equations:
+
+$$
+p(n) = p_0+k_1\cdot g(n) - k_2\cdot h(n)
+$$
+where $g(0)=h(0)=0$ and
+$$
+g(i) = e^{-1/\tau_1}\big(g(i-1) + w(i)\big),~~~ h(i) = e^{-1/\tau_2}\big(g(i-1) + w(i)\big)
+$$
+These equations have the equivalent formulation:
+$$
+p(n) = p_0+ P(n) - N(n)
+$$
+where $P(0)=N(0)=0$ and
+$$
+g(i) = e^{-1/\tau_1}\big(P(i-1) + k_1\cdot w(i)\big),~~~ h(i) = e^{-1/\tau_2}\big(N(i-1) + k_2\cdot w(i)\big)
+$$
+It is instructive to have an intuitve idea as to how this model works. Below is a graph of the BFFM with parameters $(p_0, k_1, k_2, \tau_2, \tau_2)= (500, 1,2,30,10)$, with a constant training load of $100$, i.e. $w(i) =100$ for all i, for $200$ days.  
+```{r, echo = FALSE, warning = FALSE, message = FALSE, out.width="60%", out.height="40%", fig.align='center'}
+plot <- perf_tv(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 30, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = 200,
+          training_stim = list("constant", 100))$plot +
+
+  labs(x = "Day",
+    y = "Predicted Performance (arbitrary units)",
+       title = "Example Peformance Curve") +
+  geom_line(aes(y = performance, color = "perf"), size = 1)+
+    scale_color_manual("Legend",
+                       values = c("perf" = "blue")
+                       ) +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=15),
+        title = element_text(size=15),
+        legend.position = "none")
+
+plot <- ggedit::remove_geom(plot, "line", 1)
+plot <- ggedit::remove_geom(plot, "point", 1)
+plot
+
+```
+This captures a few aspects of the performance-training relationship: an initial negative response to the training, an eventual recovery and a benefit to the training, a plateu in the long run. 
+
+This is what the Time-Invariant model looks like when it is applied to a real dataset
+
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning=FALSE}
+params_guess <- c(250,11,11,30,30)
+
+optim_params_1 <- optim_par(params_guess, 
+                                  data_1[[2]], #training load of one athlete
+                                  data_1[[3]], #actual performance of one athlete
+)
+perf <- invariant_perf(optim_params_1, data_1[[2]])
+tib_1 <- tibble::tibble(
+  "day" = data_1[[1]],
+  "predicted_performance" = perf, 
+  "actual_performance" = data_1[[3]] 
+)
+
+plot_1 <- ggplot(tib_1, aes(x=day, y=predicted_performance))+
+  geom_line(color="blue")+
+  geom_point(aes(y=actual_performance)) +
+  labs(x = "Day",
+       y = "Predicted Performance ",
+       title = "Banister Model with Cyclist Data") +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=15),
+        title = element_text(size=15))
+
+plot_1
+```
+This model displays many of the same characteristics as the previous model.
+
+### Intuitive Explanation of the Banister FF Model
+
+
+Lets just look at the sum. TE here stands for either positive training effects or negative training effects. We have
+$$
+\text{TE}(n) \propto e^{-1/\tau}w(n-1)+e^{-2/\tau}w(n-2)+\dots+e^{-n/\tau}w(0)
+$$
+or, written differently, 
+$$
+\text{TE}(n) \propto (\lambda)^1w(n-1)+(\lambda)^2w(n-2)+\dots+(\lambda)^{n}w(0),~~(0,1)\ni\lambda = e^{-1/\tau}
+$$
+
+The assertion that $\lambda\in (0,1)$ is justified by our assumption that $\tau>0$. So a training impulse $w(i)$ contributes to TE by its value, decreased by multiplying it by times some fixed number between $0$ and $1$ taken to the power of how many days it is from the current day. Doing this process for all of the training loads and summing, gets us a value that is proportional to the training effect. The $k_1$ and $k_2$ determine the scale of these effects and how the positive and negative effects are weighted against each other. This model asserts that all of these numbers are fixed.
+
+From this, we can see some of the limitations of the model. First, it assumes that we recover the same way every day, which isn't true, since you 
+can over train, not get enough sleep, get better at recovering over time, etc. Second, the modeling process is very specific. In practice, the model parameters
+depend on the person, the sport, and even the training regime. The parameters are not super interpretable; knowing just $\tau_1$, for instance, does not give us any information about the athlete. The first problem can be solved by either expanding the model, adding more parameters to try to capture more the physiological process better. Second, we can allow the parameters to vary over time, which is what we are concerned with here. 
+
+## The Time-Varying Fitness-Fatigue Model
+
+We want to have recursive equations that allow the parameters to change over time.
+Breaking down either the fitness or the fatigue term in the model, we get that
+$$
+\text{Fitness}(t) = k_1\sum_{i=0}^{t-1}e^{t-i}w(i)=k_1e^{-1/\tau_1}w(t)+k_1e^{-2/\tau_1}w(t-1)+\dots +k_1e^{t/\tau_1}w(0) 
+$$
+Lets say that at time $t_{\text{new}}$, $k_1$ changes to $k_\text{new}$ and 
+$\tau_1$ changes to $\tau_\text{new}$. We would expect that the new model looks 
+something like
+
+\begin{align*}
+\text{Fitness}(t) &= k_{new}e^{-1/\tau_\text{new}}w(t)+\dots + k_\text{new}e^{-(t-t_\text{new})/\tau_\text{new}}w(t_\text{new} +\\
+&+k_\text{1}e^{-(t-t_\text{new})/\tau_\text{new}-1/\tau_1}w(t_\text{new}-1) + \dots +k_1e^{-(t-t_\text{new})/\tau_\text{new}-t_\text{new}/\tau_1}w(0)
+\end{align*}
+So, I propose a new model for performance:
+$$
+p(t) = p_0+\sum_{i=0}^{t-1}k_1^i\exp\left(-\sum_{j=i}^t(\tau_1^j)^{-1}\right)w(i) + \sum_{i=1}^{t-1}k_2^i\exp\left(-\sum_{j=i}^t(\tau_2^j)^{-1}\right)
+$$
+where the superscript in the parameters indicates the parameter to be used for that day, i.e. $k_1^i$ indicates the $k_1$ parameter on the $i$th day. This is better understood through the recursion equations given by $g(0)=h(0)=0$, and 
+$$
+p(t) = p_0 + P(t) - N(t) 
+$$
+where 
+$$
+g(t) = e^{-1/\tau^{t}_1}(g(t-1)+k^t_1\cdot w(t)),~~~h(t) = e^{-1/\tau^{t}_2}(h(t-1)+k^t_2\cdot w(t))
+$$
+These are the same recursion equations as the second ones in the previous section, except we introduced a dependency of the parameters across time. It is best to think of this model through the recursion equations. To get an idea as to what's going on, for values of parameters given by this table 
+```{r echo = FALSE}
+data <- data.frame(
+  "k_1" = c(1,2,3, 5, 6),
+  "tau_1" = c(20, 25, 30, 40, 40), 
+  "k_2" = c(2, 4, 6, 8, 10), 
+  "tau_2" = c(5,10, 15, 25, 30),
+  row.names = list("1-100", "101-200", "201-300", "301-400", "401-700")
+)
+data <- data.table::transpose(data)
+colnames(data) <- list("1-100", "101-200", "201-300", "301-400", "401-700")
+row.names(data) <- list("k_1", "k_2", "tau_1", "tau_2")
+
+knitr::kable(data)
+```
+These parameters are not supposed to represent everying. Instead, they were chosen to get some change in the output, which is
+```{r, echo = FALSE, out.width="60%", out.height="40%", fig.align='center',}
+plot_2 <- perf_tv(p_0 = 500,
+                  k_1 = c(1,2,3, 5, 6),
+                  tau_1 = c(20, 25, 30, 40, 40), 
+                  k_2 = c(2, 4, 6, 8, 10), 
+                  tau_2 = c(5,10, 15, 25, 30),
+                  change_days = c(100, 200, 300, 400), 
+                  days = 700,
+                  training_stim = list("constant", 100))$plot
+plot_2 <- plot_2 +   
+  labs(x = "Day",
+    y = "Performance (arbitrary units)",
+       title = "Example of Time-Varying Peformance Curve") +
+  geom_line(aes(y = performance, color = "perf"), size = 1)+
+    scale_color_manual("Legend",
+                       values = c("perf" = "blue")
+                       ) +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=15),
+        title = element_text(size=15),
+        legend.position = "none")
+
+plot_2 <- remove_geom(plot_2, "line", 1)
+plot_2 <- remove_geom(plot_2, "point", 1)
+plot_2
+```
+It is important to note that these recursion equations capture that the performance is continuous despite the parameters changing wildly
+
+## Estimating the parameters
+Let $z^{(t)}=(p_0^t, k_1^t, k_2^t, \tau_1^t, \tau_2^t)$ be the set of parameters on day $t$. For the sake of pseudo-code, set a cost function
+$$
+C(\text{Error}(1,\dots, i), w^{(t)}, w^{(t-1)}) = f(\text{Error}(1,\dots,i)) + g(w^{(t)}, w^{(t-1)})
+$$
+where $\text{Error}(1,\dots,i)$ is the $i$ dimensional vector that has the error for the $1$ through $i$th performance days, $f$ is some function that penalizes error, and the actual performance, like a scaler times SSE, MSE, or RMSE, and $g$ is a function that penalizes the distance between the two parameter sets in some way. We wish to estimate the time varying parameters through Algorithm 1 .
+
+```{=latex}
+\RestyleAlgo{ruled}
+\begin{algorithm}
+\caption{Parameter estimation algorithm}
+\KwData{ 
+Training Load, a vector \texttt{w} of length $n$ \\
+Observed Performance, \texttt{obs perf} a vector of length $n$ \\
+Initial Parameters, a vector $z^{(0)}$ \\
+Settings for the Grid of values to search over, $S$ \\
+Coeficent term for the Limit Cost term, a $\lambda>0$ 
+}
+\KwResult{A vector of the predicted performance}
+\For{$i=1,\hdots, n$}{
+  \eIf{\text{Observed Performance at} $i$ \text{is a number}}{
+  $G\gets \text{a grid of sets of parameters determined by some conditions}$ \\
+  $w^{(i)} = \text{argmin}_{w\in G} C(\text{Error}(1,\hdots, i-1), z, z^{(i-1)})$ \\
+  compute $P(i)$ with $w^{(i)}$
+  }{
+  compute $P(i)$ with $w^{(i-1)}$
+  }
+}
+\end{algorithm}
+```
+Include here how exactly these algorithms work, this is still a work in progress.
+
+
+I propose here a choice of the function $g(\cdot, \cdot)$. This functions punishes the sets of parameters that have a different limit than the current set of parameters. To derive it we first restate the model
+$$
+p(t) = p_0 + k_1\sum_{i=0}^{t-1}e^{\frac{t-i}{\tau_1}}w(i) 
++ k_2\sum_{i=0}^{t-1}e^{\frac{t-i}{\tau_2}}w(i) 
+$$
+Assume that $w(i)=C$ for all $i$. This takes the convention that $p_0$ happens 
+on day $0$. Note that 
+
+$$
+\sum_{i=0}^{t-1} e^{\frac{t-i}{\tau_1}} =
+-1+\sum_{i=0}^{s}\big(e^{-1/\tau_1}\big)^i
+$$
+
+Finding the long-run limit of $p(t)$ then amounts to computing 
+$$
+\sum_{i=0}^\infty \big(e^{-1/\tau_1}\big)^i = \frac{1}{1-e^{-1/\tau_1}}
+$$
+Notice that this is a convergent geometric series, $e^{-1/\tau_1}<1$ when $\tau_1>1$ 
+(which we have assumed). Therefore,
+
+$$
+\sum_{i=0}^{t-1} e^{\frac{t-i}{\tau_1}} = -1+\frac{1}{1-e^{-1/\tau_1}} =\frac{e^{-1/\tau_1}}{1-e^{-1/\tau_1}}
+$$
+Therefore 
+$$
+\lim_{t\rightarrow \infty}p(t) = p_0 + C\left(\frac{k_1e^{-1/\tau_1}}{1-e^{-1/\tau_1}}-\frac{k_2e^{-1/\tau_1}}{1-e^{-1/\tau_2}}\right)
+$$
+So if $z = (p_0,k_1,k_2,\tau_1,\tau_2)$, and 
+$$
+h(z) = \frac{k_1e^{-1/\tau_1}}{1-e^{-1/\tau_1}}-\frac{k_2e^{-1/\tau_1}}{1-e^{-1/\tau_2}}
+$$
+Then the proposed function $g$ is 
+$$
+g(z,z') = |h(z)-h(z')|
+$$
+
+
+# Simulation Study
+Will apply this algorithm to different simulated situations. I cannot put anything here because I am still working on improving the algorithm to it's final form. To make sure that it works. I will also do a comparative analysis to other methods to compare its effectiveness. I give here preliminary results of the algorithm when the function of error is root mean square error, and the function $g$ is the one introduced before. The "actual performance" was simulated by first computing the time-invariant performance for the parameters, in the same order as the definition of $z$, $(500,1,2,25,10)$ and adding Gaussian noise to each point with mean $0$ and standard deviation $10$. The algorithm was run with initial parameters $(500,1,2,25,10)$ (the actual parameters), and $\lambda =.3$ 
+
+```{r noise simulation 1, echo = FALSE, out.width="60%", out.height="40%", fig.align='center', warning = FALSE}
+set.seed(5)
+days_test <- 200
+perf_sim_1 <- c(500, perf_tv(p_0 = 500, k_1 = 1, tau_1 = 25, k_2 = 2, 
+          tau_2 = 10, days = days_test, 
+          training_stim = list("constant", 100))$performance
+) 
+noise_fn <- function(x,  
+                     sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 10)
+samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+}
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  lambda = .3
+)
+model_perf$perf_plot 
+model_perf$params_plots
+```
+The plots show us that even though the algorithm predicted the correct parameters for all but one day, the modeled performance wandered off. There are some improvements to be made for the model. 
+
+# Emperical Studies
+I will do the same thing in the simulation study as to an empirical datasets, taken from Clarke and Skibba (2013). The algorithm was run with the initial parameters $(262,.1,.1,11,11)$. 
+
+```{r real data 1, echo = FALSE, out.width="60%", out.height="40%", fig.align='center'}
+real_data <- data_2
+day_vec_real <- real_data[[1]]
+training_load_real <- real_data[[2]]
+obs_perf_real <- real_data[[3]]
+init_params_real <- c(262, .1, .1, 11, 11)
+obs_new_alg <- new_pred_perf(
+  init_params_real,
+  training_load_real,
+  obs_perf_real,
+  lambda = 1
+)
+
+plot_real <- obs_new_alg$perf_plot
+plot_real <- plot_real +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=15),
+        title = element_text(size=15),
+        legend.position = "none")
+plot_real
+```
+What is happening here is that that the parameters that the algorithm searches over are all bad, so the algorithm doesn't change from it's original parameters. This results in a flat line. When the algorithm is improved upon, it will predict the performance better. I cannot, however, give anything better currently since the research has not been finished. 
+
+# Conclusion
+Hopefully it works!
+
+# Appendix
+
+## Derivation of the model
+As in Clarke and Skibba, add later
+
+## Other items
+There are probably going to be other items, like figures or datasets that I will not want to include in the paper directly. 
+
+# Bibliography
+
