@@ -44,7 +44,7 @@ get_performance_matrix <- function(
 }
 
 
-####assume T_2 is posititvea
+####
 #' RLS Algorithm
 #'
 #' The implementation of the RLS algorithm with a forgetting factor.
