@@ -80,27 +80,37 @@ plot_perf <- function(observed_performance,
 ```{r how to update parameters}
 update_cost <- function(params_i, prev_params, # these two are the only things that change each iteration
                         obs_indexes, training_load, obs_perf,
-                        error_func, cost_error_func, param_cost_func, min_cost_vec, min_params_mat
+                        error_func, cost_error_func, param_cost_func, 
+                        alpha, window, 
+                        min_cost_vec, min_params_mat
                      ) {
   # initializations
   params_cost_i <- param_cost_func(params_i, prev_params)
-  error_i <- 0
+  cuml_error <- 0
   p_0 <- params_i[[1]]
   k_1 <- params_i[[2]]; k_2 <- params_i[[3]]
   coef_1 <- exp(-1/params_i[[4]]); coef_2 <- exp(-1/params_i[[5]])
   T_1 <- 0; T_2 <- 0
   lower_index <- 1
   j <- 0
+  if (window > 0) { # 0 is the case where no window is specified
+    error_tmp <- c(rep(0, window))
+  }
   
   for (new_index in obs_indexes) {
     for (t in lower_index:new_index) {
       T_1 <- coef_1*(T_1 + k_1*training_load[[t]])
       T_2 <- coef_2*(T_2 + k_2*training_load[[t]])
     }
-    error_i <- error_i + error_func(p_0 + T_1 - T_2 - obs_perf[[new_index]])
+    error_i <- error_func(p_0 + T_1 - T_2 - obs_perf[[new_index]])
+    cuml_error <- alpha*cuml_error + error_i 
+    if(window > 0) {
+      cuml_error <- cuml_error - alpha^(window)*error_tmp[[j%%window+1]]
+      error_tmp[[j%%window+1]] <- error_i 
+    }
     j <- j + 1
     lower_index <- new_index + 1
-    cost_ij <- cost_error_func(error_i, j) + params_cost_i
+    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i
     if (cost_ij < min_cost_vec[[j]]) {
       min_cost_vec[[j]] <- cost_ij
       min_params_mat[j, ] <- params_i
@@ -111,6 +121,7 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
 
 min_params <- function(params_matrix, prev_params, # these two could change
                       training_load, obs_perf, # these won't; they are data
+                      alpha, window, # these won't; they are specified by the user
                       error_func, cost_error_func, param_cost_func # these won't; they are specified by the user
                       ) {
   obs_indexes <- which(!is.na(obs_perf))
@@ -120,13 +131,14 @@ min_params <- function(params_matrix, prev_params, # these two could change
   for (i in 1:nrow(params_matrix)) {
     params_i <- as.numeric(params_matrix[i, ])
     res <- update_cost(params_i, prev_params, obs_indexes, training_load, obs_perf,
-                       error_func, cost_error_func, param_cost_func, min_cost_vec, min_params_mat) 
+                       error_func, cost_error_func, param_cost_func,
+                       alpha, window,
+                       min_cost_vec, min_params_mat) 
     min_cost_vec <- res$cost
     min_params_mat <- res$params
   }
   return(list("opt_params" = min_params_mat, "cost" = min_cost_vec))
 }
-
 
 # this function creates (or calls, we will see) the parameter matrix and applies 
 # it to the previous function. makes things tider in the algorithm funciton
@@ -163,10 +175,9 @@ new_pred_perf <- function(init_params,
   
   type_error <- error_settings$type
   
-  if (type_error == "AE" || type_error == "MAE") {
+  if (type_error %in% c("AE", "MAE")) {
     error_func <- abs
-  }
-  if (type_error %in% c("SSE", "MSE", "RMSE")) {
+  } else if (type_error %in% c("SSE", "MSE", "RMSE")) {
     error_func <- function(x) x^2
   } else stop("change error settings")
   
@@ -182,8 +193,30 @@ new_pred_perf <- function(init_params,
     param_cost_func <- function(x,y) {params_dist(x, y, params_settings$lambda)}
   }
   
+  #### checking inputs ####
+  alpha <- error_settings$alpha
+  if (is.null(alpha) == TRUE) {
+    alpha = 1
+  } else if (!is.numeric(alpha)){
+    stop("bad value for alpha, must be a real number")
+  } else if (alpha > 1 || alpha < 0) {
+    warning("Alpha is intended to be a real number between 0 and 1") 
+  } else {
+    #pass 
+  }
+
+  window <- error_settings$window
+  if(is.null(window)==TRUE || is.infinite(window)) {
+    window = 0
+  } else if (!is.numeric(window)|| window - floor(window) > 0 || window < 0) {
+    stop("Bad Value of alpha; must be a positive integer")
+  } else {
+    #pass
+  }
+  
   res_1 <- min_params(searh_params_mat(bounds_type = bounds_type),
                       init_params, training_load, obs_perf,
+                      alpha, window,  
                       error_func, cost_error_func, param_cost_func)
   opt_params_mat <- res_1$opt_params
   cost_vec <- res_1$cost
@@ -249,10 +282,10 @@ noise_fn <- function(x, sd){
   x+rnorm(1, mean = 0, sd = sd)
 }
 
-perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 10)
 
 # this is one off
-samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 20))
+samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 30))
 actual_perf <- rep(NA, days_test)
 for (i in samp_index) {
   actual_perf[[i]] = perf_sim_1[[i+1]]
@@ -262,8 +295,8 @@ model_perf <- new_pred_perf(
   c(500, 1,2, 25, 10),
   c(rep(100, days_test)),
   actual_perf,
-  list("type" = "SSE"),
-  list("type" = "lim_cost", "lambda" = 1000)
+  list("type" = "MAE", "alpha" = .95, "window" = Inf),
+  list("type" = "lim_cost", "lambda" = 1)
 )
 model_perf$perf_plot 
 model_perf$params_plots
