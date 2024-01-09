@@ -175,18 +175,27 @@ new_pred_perf <- function(init_params,
   
   type_error <- error_settings$type
   
-  if (type_error %in% c("AE", "MAE")) {
+  if (type_error %in% c("AE", "MAE", "AEOS")) {
     error_func <- abs
   } else if (type_error %in% c("SSE", "MSE", "RMSE")) {
     error_func <- function(x) x^2
-  } else stop("change error settings")
+  } else if (type_error %in% c("SPE", "MPE", "RMPE")) {
+    p <- error_settings$p
+    error_func <- function(x) x^p
+  }
+  
+  else stop("change error settings")
   
   cost_error_func <- switch(type_error,
     "AE" = function(error, j) {error},
     "MAE" = function(error, j) {error/j},
+    "AEOS" = function(error, j ) {error/sqrt(j)},
     "SSE" = function(error, j) {error},
     "MSE" = function(error, j) {error/j},
-    "RMSE" = function(error, j) {sqrt(error/j)}
+    "RMSE" = function(error, j) {sqrt(error/j)},
+    "SPE" = function(error, j) {error},
+    "MPE" = function(error, j) {error/j},
+    "RMPE" = function(error, j) {(error/j)^{1/p}},
   )
   
   if (params_settings$type == "lim_cost") {
@@ -295,11 +304,12 @@ model_perf <- new_pred_perf(
   c(500, 1,2, 25, 10),
   c(rep(100, days_test)),
   actual_perf,
-  list("type" = "MAE", "alpha" = .95, "window" = Inf),
+  list("type" = "RMPE", "p" = 40, "alpha" = .95, "window" = Inf),
   list("type" = "lim_cost", "lambda" = 1)
 )
 model_perf$perf_plot 
 model_perf$params_plots
+model_perf$cost_vec
 ```
 
 ```{r testing}
