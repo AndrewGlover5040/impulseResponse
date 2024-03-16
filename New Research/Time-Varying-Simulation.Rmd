@@ -18,7 +18,7 @@ knitr::purl(input = "Time-Varying-Simulation.Rmd",
 
 ``` 
 
-## 
+
 
 ```{r libraries, purl = TRUE}
 library(ggplot2) # for graphing
@@ -33,7 +33,7 @@ devtools::load_all()
 
 # Functions used for analysis 
 
-## Generating the parameters matri
+## Generating the parameters matrix
 ```{r Generating the parameters matrix, purl=TRUE}
 params_mat <- function(k_1, tau_1, k_2, tau_2, change_days=NULL, days) {
   if (length(k_1) == length(tau_1) && 
@@ -226,18 +226,13 @@ perf_tv <- function(p_0,
                       tau_2,
                       change_days = NULL,
                       days,
-                      training_stim,
-                      lim = TRUE) {
-  training_load <- c()
-  limit <- 0
-  if (training_stim[[1]] == "constant") {
-    training_load <- c(rep(training_stim[[2]], days))
-    k <- length(k_1)
-    
-    # See justification for this below
-    limit <- p_0 + training_stim[[2]]*k_1[[k]]*exp(-1/tau_1[[k]])/(1-exp(-1/tau_1[[k]])) -
-      training_stim[[2]]*k_2[[k]]*exp(-1/tau_2[[k]])/(1-exp(-1/tau_2[[k]])) 
-  }
+                      training_load,
+                      lim = FALSE) {
+  k <- length(k_1)
+  # if (length(unique(training_stim))==1){
+  # limit <- p_0 + training_stim[[2]]*k_1[[k]]*exp(-1/tau_1[[k]])/(1-exp(-1/tau_1[[k]])) -
+  #     training_stim[[2]]*k_2[[k]]*exp(-1/tau_2[[k]])/(1-exp(-1/tau_2[[k]])) 
+  # }
   tmp_matrix <- params_mat(k_1,
                            tau_1,
                            k_2,
@@ -248,16 +243,19 @@ perf_tv <- function(p_0,
   tmp_data <- tibble(
     "day" = c(0:days),
     "performance" = c(p_0, modeled_performance),
-    "limit" = c(rep(limit, days + 1))
   )
+  
+  # if (lim == TRUE) {
+  #   tmp_data <- bind_col(tmp_data, c(rep(limit, days + 1)))
+  # }
   
   plot <- ggplot(tmp_data, aes(x = day)) +
     geom_point(aes(y = performance, color = "perf")) 
-  if (lim == TRUE){
-     plot <- plot + geom_line(aes(y = limit, color = "lim"))
-  }
- 
   
+  # if (lim == TRUE){
+  #    plot <- plot + geom_line(aes(y = limit, color = "lim"))
+  # }
+ 
   #   scale_color_manual("Legend",
   #                      values = c("lim" = "#e31a1c", # this color comes from the theme "Paired"
   #                                 "perf" = "black"))
@@ -270,6 +268,8 @@ perf_tv <- function(p_0,
 
 
 ```{r}
+days_test <- 700
+train_sim_54 <- rep(100, 200)
 perf_tv(p_0 = 500,
           k_1 = c(1,2,3, 5, 6),
           tau_1 = c(20, 25, 30, 40, 40), 
@@ -277,7 +277,7 @@ perf_tv(p_0 = 500,
           tau_2 = c(5,10, 15, 25, 30),
           change_days = c(100, 200, 300, 400), 
           days = 700,
-          training_stim = list("constant", 100))$plot
+          training_stim = c(0,9, 8) )$plot
 ```
 ## Computing the limit of the model
 
@@ -311,6 +311,8 @@ $$
 \lim_{t\rightarrow \infty}p(t) = p_0 + C\left(\frac{k_1e^{-1/\tau_1}}{1-e^{-1/\tau_1}}-\frac{k_2e^{-1/\tau_1}}{1-e^{-1/\tau_2}}\right)
 $$
 This is how we compute the red line in `perf_plot`.
+
+
 
 # Exploring the time, varying model
 This is a time-invariant plot with our new function, to check that things are working correctly.
@@ -466,7 +468,7 @@ ggsave(filename = "dist from single set.pdf",
        device = "pdf")
 
 
-# this took awhile
+# this took a while
 cdf_vec <- c(rep(0, 2601))
 for (i in 1:2601) {
   cdf[[i]] <- length(which(dist_vec<=i))
@@ -508,7 +510,7 @@ knitr::include_graphics(stringr::str_c(rprojroot::find_rstudio_root_file(),
 # Generating many performance curves with the same limit and plotting 
 ```{r, eval = FALSE}
 set.seed(443)
-C_1 <- round(lim_func(1,25,2,10), digits = 1)
+C_1 <- round(lim_func(1,2,25,10), digits = 1)
 n <- 100
 vec_1<- runif(n, 5, 50)+C_1
 k_1_same <- mapply(function(i) {runif(1, 1, vec_1[[i]])}, c(1:n)) 
@@ -518,9 +520,9 @@ vec_2 <- vec_1-C_1
 k_2_same <- mapply(function(i) {runif(1, 1, vec_2[[i]])}, c(1:n)) 
 tau_2_same <- -1/log(1-k_2_same/vec_2)
 
-
-day <- 150
-p_0 <- 500
+seq(5,50, length.out = n+1)
+day <- 150 
+p_0 <- 500 
 training_load <- c(rep(100, day))
 same_test_tib <- tibble(
   "day"  = c(0:day)
@@ -536,7 +538,7 @@ for (i in 1:n) {
                                                    tau_2 = tau_2_same[[i]],
                                                    days = day,
                                                  training_stim = list("constant", 100)
-                                               ))
+                                               )$performance)
 }
 
 
@@ -614,8 +616,6 @@ for (i in nrow(params_grid_1)){
   invariant_perf(params = c(p_0, params_grid_1[i, ]), 
                  training_load = training_load_1)
 }
-
-
 
 ```
 
