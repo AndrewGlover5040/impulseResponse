@@ -18,6 +18,8 @@ knitr::opts_chunk$set(purl = FALSE)
 devtools::load_all() 
 ```
 
+
+
 ### Libraries Used
 ```{r, message = FALSE, purl = TRUE}
 library(tibble)
@@ -42,20 +44,69 @@ an actual performance.
 
 # Algorithm Functions:
 
+
+## Helpers used in analysis:
+```{r analysis helpers, purl = TRUE}
+noise_fn <- function(x, sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+
+```
+
+
 ## Helpers
-```{r helpers, purl = TRUE}
+```{r Helper Functions, purl = TRUE}
 # function inside of parameter distance
 lim_func <- function(k_1, k_2, tau_1, tau_2) {
   k_1*exp(-1/tau_1)/(1-exp(-1/tau_1))-k_2*exp(-1/tau_2)/(1-exp(-1/tau_2))
 }
 
 # computes "parameter distance"
-params_dist <- function(params_1, params_2, lambda) {
+params_dist <- function(params_1, params_2, lambda_1) {
   # ignore params_1[[1]] since it is just the inital value
-  lambda *abs(lim_func(params_1[[2]], params_1[[3]], params_1[[4]], params_1[[5]]) -
+  lambda_1 * abs(lim_func(params_1[[2]], params_1[[3]], params_1[[4]], params_1[[5]]) -
         lim_func(params_2[[2]], params_2[[3]], params_2[[4]], params_2[[5]])
       )
 }
+
+params_local_diff <- function(params, N, lambda_2) {
+  coef_1 <- exp(-1/params[[4]]); coef_2 <- exp(-1/params[[5]])
+  exp_sum_1 <- 0; exp_sum_2 <- 0
+  for (i in 1:N) {
+   exp_sum_1 = exp_sum_1 + coef_1^i
+   exp_sum_2 = exp_sum_2 + coef_2^i
+  }
+  return(lambda_2*(params[[2]]*exp_sum_1 - params[[3]]*exp_sum_2))
+}
+
+alg_param_cost_func <- function(x, y, params_settings) {
+  params_settings$training_level * (
+    params_dist(x, y, params_settings$lambda_1) +
+      abs(
+        params_local_diff(x, params_settings$N, params_settings$lambda_2) -
+          params_local_diff(y, params_settings$N, params_settings$lambda_2)
+      )
+  )
+}
+
+alg_TE_cost_func <-
+  function(P_t,
+           N_t,
+           tau_1_i,
+           tau_2_i,
+           tau_1_prev,
+           tau_2_prev,
+           params_settings
+          ) {
+    params_settings$lambda_2 * abs((
+      exp(-params_settings$N / tau_1_i) * P_t -
+        exp(-params_settings$N / tau_2_i) * N_t
+    ) -
+      (
+        exp(-params_settings$N / tau_1_prev) * P_t -
+          exp(-params_settings$N / tau_2_prev) * N_t
+      ))
+  }
 
 # plotting function
 plot_perf <- function(observed_performance,
@@ -77,20 +128,31 @@ plot_perf <- function(observed_performance,
 ```
 
 
-```{r how to update parameters}
+```{r update parameters functions, purl = TRUE}
 update_cost <- function(params_i, prev_params, # these two are the only things that change each iteration
                         obs_indexes, training_load, obs_perf,
                         error_func, cost_error_func, param_cost_func, 
+                        TE_cost_func, 
                         alpha, window, 
-                        min_cost_vec, min_params_mat
+                        min_cost_vec, min_params_mat,
+                        params_settings
+                        ###### pass through prev term cost thing #####
                      ) {
   # initializations
-  params_cost_i <- param_cost_func(params_i, prev_params)
+  ########################################
+  #### assume constant training load #####
+  ########################################
+
+  params_cost_i <- param_cost_func(params_i, prev_params, params_settings)
   cuml_error <- 0
   p_0 <- params_i[[1]]
-  k_1 <- params_i[[2]]; k_2 <- params_i[[3]]
-  coef_1 <- exp(-1/params_i[[4]]); coef_2 <- exp(-1/params_i[[5]])
-  T_1 <- 0; T_2 <- 0
+  k_1 <- params_i[[2]]
+  k_2 <- params_i[[3]]
+  coef_1 <- exp(-1 / params_i[[4]])
+  coef_2 <- exp(-1 / params_i[[5]])
+
+  T_1 <- 0
+  T_2 <- 0
   lower_index <- 1
   j <- 0
   if (window > 0) { # 0 is the case where no window is specified
@@ -105,12 +167,14 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
     error_i <- error_func(p_0 + T_1 - T_2 - obs_perf[[new_index]])
     cuml_error <- alpha*cuml_error + error_i 
     if(window > 0) {
-      cuml_error <- cuml_error - alpha^(window)*error_tmp[[j%%window+1]]
-      error_tmp[[j%%window+1]] <- error_i 
+      cuml_error <- cuml_error - alpha^(window)*error_tmp[[j%%window + 1]]
+      error_tmp[[j%%window + 1]] <- error_i 
     }
     j <- j + 1
     lower_index <- new_index + 1
-    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i
+    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i +
+      TE_cost_func(T_1, T_2, params_i[[4]], params_i[[5]],
+                   prev_params[[4]], prev_params[[5]], params_settings)
     if (cost_ij < min_cost_vec[[j]]) {
       min_cost_vec[[j]] <- cost_ij
       min_params_mat[j, ] <- params_i
@@ -122,8 +186,9 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
 min_params <- function(params_matrix, prev_params, # these two could change
                       training_load, obs_perf, # these won't; they are data
                       alpha, window, # these won't; they are specified by the user
-                      error_func, cost_error_func, param_cost_func # these won't; they are specified by the user
-                      ) {
+                      error_func, cost_error_func, param_cost_func, # these won't; they are specified by the user
+                      TE_cost_func,
+                      params_settings) {
   obs_indexes <- which(!is.na(obs_perf))
   n <- length(obs_indexes)
   min_cost_vec <- c(rep(Inf, n))
@@ -132,8 +197,10 @@ min_params <- function(params_matrix, prev_params, # these two could change
     params_i <- as.numeric(params_matrix[i, ])
     res <- update_cost(params_i, prev_params, obs_indexes, training_load, obs_perf,
                        error_func, cost_error_func, param_cost_func,
+                       TE_cost_func,
                        alpha, window,
-                       min_cost_vec, min_params_mat) 
+                       min_cost_vec, min_params_mat,
+                       params_settings) 
     min_cost_vec <- res$cost
     min_params_mat <- res$params
   }
@@ -142,7 +209,8 @@ min_params <- function(params_matrix, prev_params, # these two could change
 
 # this function creates (or calls, we will see) the parameter matrix and applies 
 # it to the previous function. makes things tider in the algorithm funciton
-searh_params_mat <- function(bounds_type = list("test")) {
+search_params_mat <- function(grid_settings) {
+  bounds_type <- grid_settings$type
   if(bounds_type == "test") {
     params_matrix <- expand.grid(p_0 = 500,
                                   k_1 = c(1,2,3,4),
@@ -150,19 +218,29 @@ searh_params_mat <- function(bounds_type = list("test")) {
                                   tau_1 = c(5:35),
                                   tau_2 = c(5:35))
   }
-  params_matrix <- params_matrix[params_matrix$tau_1 >= params_matrix$tau_2,]
+  if(bounds_type == "custom") {
+    params_matrix <- expand.grid(p_0 = grid_settings$p_0,
+                              k_1 = grid_settings$k_1,
+                              k_2 = grid_settings$k_2,
+                              tau_1 = grid_settings$tau_1,
+                              tau_2 = grid_settings$tau_2)
+  }
+  
+  
+  params_matrix <- params_matrix[params_matrix$tau_1 > params_matrix$tau_2, ]
+  params_matrix <- params_matrix[params_matrix$k_1 < params_matrix$k_2, ]
   return(params_matrix)
 }
 ```
 
 
-```{r , purl = TRUE}
+```{r New algorithm, purl = TRUE}
 new_pred_perf <- function(init_params,
                           training_load,
                           obs_perf,
-                          error_settings,
+                          error_settings = list("type" = "RMSE", "alpha" = 1, "window" = Inf),
                           params_settings,
-                          bounds_type = list("test")) {
+                          grid_settings = list("type" = "test")) {
   
   curr_params <- init_params 
   ####
@@ -172,6 +250,10 @@ new_pred_perf <- function(init_params,
   colnames(matrix_params) <- c("p_0", "k_1", "k_2", "tau_1", "tau_2")
   days <- length(training_load)
   perf_out <- c(rep(curr_params[[1]], days + 1)) 
+  
+  ###############################################
+  ########## Doing the error Settings ###########
+  ###############################################
   
   type_error <- error_settings$type
   
@@ -183,7 +265,6 @@ new_pred_perf <- function(init_params,
     p <- error_settings$p
     error_func <- function(x) x^p
   }
-  
   else stop("change error settings")
   
   cost_error_func <- switch(type_error,
@@ -198,8 +279,15 @@ new_pred_perf <- function(init_params,
     "RMPE" = function(error, j) {(error/j)^{1/p}},
   )
   
-  if (params_settings$type == "lim_cost") {
-    param_cost_func <- function(x,y) {params_dist(x, y, params_settings$lambda)}
+  ###############################################
+  ######### Doing the parameter Settings ########
+  ###############################################
+  
+  if (params_settings$type == "alg_cost") {
+    ## See helper function chunk for these functions ##
+    
+    param_cost_func <- alg_param_cost_func
+    TE_cost_func <- alg_TE_cost_func
   }
   
   #### checking inputs ####
@@ -223,14 +311,22 @@ new_pred_perf <- function(init_params,
     #pass
   }
   
-  res_1 <- min_params(searh_params_mat(bounds_type = bounds_type),
+  
+  ##############################################
+  ########### Doing the Algorithm ##############
+  ############################################## 
+  
+  res_1 <- min_params(search_params_mat(grid_settings),
                       init_params, training_load, obs_perf,
                       alpha, window,  
-                      error_func, cost_error_func, param_cost_func)
+                      error_func, cost_error_func, param_cost_func,
+                      TE_cost_func, params_settings)
   opt_params_mat <- res_1$opt_params
   cost_vec <- res_1$cost
-  
-  # doing the algorithm
+
+  ##############################################
+  ######## Computing The performance ###########
+  ##############################################
   
   T_1 <- 0
   T_2 <- 0
@@ -249,7 +345,10 @@ new_pred_perf <- function(init_params,
     matrix_params[i, ] <- as.numeric(curr_params)
   }
   
-  #plotting
+  ##############################################
+  ########## plotting the results ##############
+  ##############################################
+  
   params_data <- tibble(
     "day" = 0:length(training_load),
     "k_1" = as.numeric(c(matrix_params[1, "k_1"], matrix_params[, "k_1"])),
@@ -265,6 +364,14 @@ new_pred_perf <- function(init_params,
   tau_plot <- ggplot(params_data, aes(x = day)) +
     geom_line(aes(y = tau_1, color = "tau_1")) +
     geom_line(aes(y = tau_2, color = "tau_2"))
+  
+  training_plot <- ggplot(tibble("day" = 0:length(training_load),
+                                 "train_load" = c(0,training_load)
+                                 ),
+                          aes(x = day,
+                              y= train_load)
+                          ) +
+    geom_bar(stat = "identity")
 
   #outputs
   out_list <- list()
@@ -272,290 +379,7 @@ new_pred_perf <- function(init_params,
   out_list$cost_vec <- cost_vec
   out_list$perf_plot <- plot_perf(obs_perf, perf_out)
   out_list$params_plots <- k_plot + tau_plot
+  out_list$training_plot <- training_plot
   return(out_list)
 } 
 ```
-
-```{r sanity check, warning=FALSE, eval = FALSE}
-set.seed(1)
-days_test <- 200
-perf_sim_1 <- c(500, perf_tv(p_0 = 500,
-          k_1 = 1,
-          tau_1 = 25, 
-          k_2 = 2, 
-          tau_2 = 10,
-          days = days_test,
-          training_stim = list("constant", 100))$performance
-) 
-noise_fn <- function(x, sd){
-  x+rnorm(1, mean = 0, sd = sd)
-}
-
-perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 10)
-
-# this is one off
-samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 30))
-actual_perf <- rep(NA, days_test)
-for (i in samp_index) {
-  actual_perf[[i]] = perf_sim_1[[i+1]]
-}
-
-model_perf <- new_pred_perf(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  list("type" = "RMPE", "p" = 40, "alpha" = .95, "window" = Inf),
-  list("type" = "lim_cost", "lambda" = 1)
-)
-model_perf$perf_plot 
-model_perf$params_plots
-model_perf$cost_vec
-```
-
-```{r testing}
-set.seed(4)
-days_test <- 200
-perf_sim_1 <- c(500, perf_tv(p_0 = 500,
-          k_1 = 1,
-          tau_1 = 25, 
-          k_2 = 2, 
-          tau_2 = 10,
-          days = days_test,
-          training_stim = list("constant", 100))$performance
-) 
-noise_fn <- function(x,  
-                     sd){
-  x+rnorm(1, mean = 0, sd = sd)
-}
-
-perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
-
-# this is one off
-samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
-actual_perf <- rep(NA, days_test)
-for (i in samp_index) {
-  actual_perf[[i]] = perf_sim_1[[i+1]]
-  
-}
-
-params_matrix_1 <- as.matrix(expand.grid(p_0 = 500,
-                                  k_1 = c(1,2,3,4),
-                                  k_2 = c(2,4,6,8),
-                                  tau_1 = c(5:35),
-                                  tau_2 = c(5:35))
-)
-
-res_1 <- min_params_new(params_matrix_1,
-               training_load = c(rep(100,days_test)),
-               actual_perf,
-               c(500,1,2,25,10),
-               lambda = .4)
-res_1
-
-```
-## Algorithm Pseudo-code, not complete
-<!-- ```{=latex} -->
-<!-- \RestyleAlgo{ruled} -->
-<!-- \begin{algorithm} -->
-<!-- \caption{The Update Algorithm} -->
-<!-- \KwData{  -->
-<!-- Training Load, a vector \texttt{w} of length $n$ \\ -->
-<!-- Observed Performance, \texttt{obs perf} a vector of length $n$ \\ -->
-<!-- Initial Parameters, a vector \texttt{init params} $ = (p_0, k_1, k_2, \tau_1,\tau_2)$ \\ -->
-<!-- Settings for the Grid of values to search over, $S$ \\ -->
-<!-- Coeficent term for the Limit Cost term, a $\lambda>0$  -->
-<!-- } -->
-<!-- \KwResult{A list containing: \\ -->
-<!-- a vector of the predicted performance \\ -->
-<!-- a vector of the cost of the parameters at each of the observed performances \\ -->
-<!-- a plot of the predicted performance and the observed performance \\ -->
-<!-- plots of the parameters across time -->
-<!-- } -->
-<!-- \\ -->
-<!-- Initializations\; -->
-<!-- $\verb|curr_params| \gets \verb|init_params|$ -->
-
-
-<!-- \end{algorithm} -->
-<!-- ``` -->
-
-Let $z^{(t)}=(p_0^t, k_1^t, k_2^t, \tau_1^t, \tau_2^t)$ be the set of parameters on day $t$. For the sake of pseudo-code, set a cost function
-$$
-C(\text{Error}(1,\dots, i), w^{(t)}, w^{(t-1)}) = f(\text{Error}(1,\dots,i)) + g(w^{(t)}, w^{(t-1)})
-$$
-where $\text{Error}(1,\dots,i)$ is the $i$ dimensional vector that has the error for the $1$ through $i$th performance days, $f$ is some function that penalizes error, and the actual performance, like a scaler times SSE, MSE, or RMSE, and $g$ is a function that penalizes the distance between the two parameter sets in some way. We wish to estimate the time varying parameters through Algorithm 1 .
-
-```{=latex}
-\RestyleAlgo{ruled}
-\begin{algorithm}
-\caption{Parameter estimation algorithm}
-\KwData{ 
-Training Load, a vector \texttt{w} of length $n$ \\
-Observed Performance, \texttt{obs perf} a vector of length $n$ \\
-Initial Parameters, a vector $z^{(0)}$ \\
-Settings for the Grid of values to search over, $S$ \\
-Coeficent term for the Limit Cost term, a $\lambda>0$ 
-}
-\KwResult{A vector of the predicted performance}
-\For{$i=1,\hdots, n$}{
-  \eIf{\text{Observed Performance at} $i$ \text{is a number}}{
-  $G\gets \text{a grid of sets of parameters determined by some conditions}$ \\
-  $w^{(i)} = \text{argmin}_{w\in G} C(\text{Error}(1,\hdots, i-1), z, z^{(i-1)})$ \\
-  compute $P(i)$ with $w^{(i)}$
-  }{
-  compute $P(i)$ with $w^{(i-1)}$
-  }
-}
-\end{algorithm}
-```
-Include here how exactly these algorithms work, this is still a work in progress.
-
-# Testing New Algorthm on simulated data
-## basic testing
-As a sanity check, we give the algorithm the true values of the parameters
-as the initial parameters, tested aginst the the actual performance with no noise
-```{r sanity check098, warning=FALSE, eval = FALSE}
-set.seed(1)
-days_test <- 200
-perf_sim_1 <- c(500, perf_tv(p_0 = 500, k_1 = 1, tau_1 = 25, k_2 = 2, 
-          tau_2 = 10, days = days_test, 
-          training_stim = list("constant", 100))$performance
-) 
-noise_fn <- function(x,  
-                     sd){
-  x+rnorm(1, mean = 0, sd = sd)
-}
-
-# perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
-
-# this is one off
-samp_index <- c(sample(c(1:100), 30), sample(c(101:days_test), 10))
-actual_perf <- rep(NA, days_test)
-for (i in samp_index) {
-  actual_perf[[i]] = perf_sim_1[[i+1]]
-  
-}
-
-model_perf <- new_pred_perf_1(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  lambda = 10
-)
-model_perf$perf_plot 
-model_perf$params_plots
-
-```
-This checks out. It has passed the sanity check. The algorithm gives the same 
-resutls no matter what the value of `lambda` is.
- 
-
-## adding noise
-Running the same simulation with gaussian noise to the simulated performance, 
-with standard deviation of $20$. We will see that increasing lambda smoothes 
-out the performance curves. This first simulation is with `lambda = 0` which 
-just finds the minimum parameters with respect to SSE. 
-```{r noise simulation 1, eval = FALSE}
-set.seed(5)
-perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 10)
-samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
-actual_perf <- rep(NA, days_test)
-for (i in samp_index) {
-  actual_perf[[i]] = perf_sim_1[[i+1]]
-}
-model_perf <- new_pred_perf(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  lambda = .3
-)
-model_perf$perf_plot 
-model_perf$params_plots
-```
-This kind of wanders off
-
-```{r noise simulation 2, eval = FALSE}
-model_perf <- new_pred_perf(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  lambda = .1
-)
-model_perf$perf_plot 
-model_perf$params_plots
-```
-The wandering is fixed when we introduce some penalty for the distance function
-```{r noise simulation 3, eval = FALSE}
-model_perf <- new_pred_perf(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  lambda = .5
-)
-model_perf$perf_plot 
-model_perf$params_plots
-```
-## More complicated simulation 
-Working on simulating a situation where the parameter change over time, but 
-the simulated perforamance level is not realistic. Right now, the algorthm 
-cannot handle this case. 
-```{r time-varying simulation 1, eval = FALSE}
-set.seed(2)
-days_test <- 500
-perf_sim_2 <- c(500, perf_tv(p_0 = 500,
-          k_1 = c(1,1,1.1),
-          tau_1 = c(15, 20, 10), 
-          k_2 = c(2, 2, 2), 
-          tau_2 = c(5,7, 20),
-          change_days = c(100, 200), 
-          days = days_test,
-          training_stim = list("constant", 100))$performance
-)
-samp_index <- c(sample(c(1:100), 10), sample(c(101:days_test), 20))
-actual_perf <- rep(NA, days_test)
-for (i in samp_index) {
-  actual_perf[[i]] = perf_sim_2[[i]]
-}
-
-plot_check <- plot_perf(actual_perf,
-                        perf_sim_2) +
-  labs(title = "Check that sampling from the simulation works")
-plot_check
-
-model_perf_2 <- new_pred_perf(
-  c(500, 1,2, 25, 10),
-  c(rep(100, days_test)),
-  actual_perf,
-  lambda = 10
-)
-model_perf_2$perf_plot
-model_perf_2$params_plots
-
-```
-It does a pretty bad job. This is because the algorithm, at every new data point, 
-tries to fit the best Time-*Invariant* curve. In this situation, all of the 
-Time-Invariant functions don't fit well when the parameters first change. 
-
-# Applying to Real Data
-This is a work in progress. Right now, the algorithm cannot handle this case
-This runs the 
-```{r real data 1, eval = FALSE}
-real_data <- data_2
-day_vec_real <- real_data[[1]]
-training_load_real <- real_data[[2]]
-obs_perf_real <- real_data[[3]]
-init_params_real <- c(262, .1, .1, 11, 11)
-obs_new_alg <- new_pred_perf(
-  init_params_real,
-  training_load_real,
-  obs_perf_real,
-  lambda = 1
-)
-
-obs_new_alg$perf_plot
-obs_new_alg$params_plots
-```
-Here, it does not change because the algorithm has decided that all of the 
-options that we have told it to search over are all bad so it stuck with
-the initial estimate which is probably a good sign.
-
