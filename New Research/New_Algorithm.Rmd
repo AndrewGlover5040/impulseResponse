@@ -20,6 +20,7 @@ devtools::load_all()
 
 
 
+
 ### Libraries Used
 ```{r, message = FALSE, purl = TRUE}
 library(tibble)
@@ -29,6 +30,7 @@ library(dplyr)
 library(patchwork)
 # loads the functions from the package
 ```
+
 
 ```{r purling, eval=FALSE, include=FALSE}
 #### run this to purl the r code to the /R file, this seems to not be able to run with the knit
@@ -80,13 +82,14 @@ params_local_diff <- function(params, N, lambda_2) {
 }
 
 alg_param_cost_func <- function(x, y, params_settings) {
-  params_settings$training_level * (
-    params_dist(x, y, params_settings$lambda_1) +
-      abs(
-        params_local_diff(x, params_settings$N, params_settings$lambda_2) -
-          params_local_diff(y, params_settings$N, params_settings$lambda_2)
-      )
-  )
+  training_level <- params_settings$training_level
+  lambda_1 <- params_settings$lambda_1
+  N <- params_settings$N
+  training_level * (params_dist(x, y, lambda_1) +
+                      abs(
+                        params_local_diff(x, N, lambda_2) -
+                          params_local_diff(y, N, lambda_2)
+                      ))
 }
 
 alg_TE_cost_func <-
@@ -96,16 +99,17 @@ alg_TE_cost_func <-
            tau_2_i,
            tau_1_prev,
            tau_2_prev,
-           params_settings
-          ) {
-    params_settings$lambda_2 * abs((
-      exp(-params_settings$N / tau_1_i) * P_t -
-        exp(-params_settings$N / tau_2_i) * N_t
+           params_settings) {
+    N <- params_settings$N
+    lambda_2 <- params_settings$lambda_2
+    return(lambda_2 * abs((
+      exp(-N / tau_1_i) * P_t -
+        exp(-N / tau_2_i) * N_t
     ) -
       (
-        exp(-params_settings$N / tau_1_prev) * P_t -
-          exp(-params_settings$N / tau_2_prev) * N_t
-      ))
+        exp(-N / tau_1_prev) * P_t -
+          exp(-N / tau_2_prev) * N_t
+      )))
   }
 
 # plotting function
