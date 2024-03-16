@@ -1,7 +1,7 @@
 ---
 title: "Thesis Manuscript"
 author: "Andrew Glover"
-date: "December 8, 2023"
+date: "`r Sys.Date()`"
 output: 
   pdf_document:
     extra_dependencies: ["algorithm2e", "verbatim", "amsmath"]
@@ -9,8 +9,9 @@ fontsize: 12pt
 header-includes: 
   \usepackage{indentfirst}
 indent: true
-bibliography: vignette.bib 
+bibliography: /Users/andrewglover/R Projects/impulseResponse/vignettes/vignette.bib 
 ---
+<!-- Note that the bibliography path is for my computer, not yours -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -66,7 +67,7 @@ plot <- perf_tv(p_0 = 500,
           k_2 = 2, 
           tau_2 = 10,
           days = 200,
-          training_stim = list("constant", 100))$plot +
+          training_load = rep(100,200))$plot +
 
   labs(x = "Day",
     y = "Predicted Performance (arbitrary units)",
@@ -186,7 +187,7 @@ plot_2 <- perf_tv(p_0 = 500,
                   tau_2 = c(5,10, 15, 25, 30),
                   change_days = c(100, 200, 300, 400), 
                   days = 700,
-                  training_stim = list("constant", 100))$plot
+                  training_load = rep(100,700))$plot
 plot_2 <- plot_2 +   
   labs(x = "Day",
     y = "Performance (arbitrary units)",
@@ -284,7 +285,7 @@ set.seed(5)
 days_test <- 200
 perf_sim_1 <- c(500, perf_tv(p_0 = 500, k_1 = 1, tau_1 = 25, k_2 = 2, 
           tau_2 = 10, days = days_test, 
-          training_stim = list("constant", 100))$performance
+          training_load = rep(100,days_test))$performance
 ) 
 noise_fn <- function(x,  
                      sd){
@@ -300,7 +301,8 @@ model_perf <- new_pred_perf(
   c(500, 1,2, 25, 10),
   c(rep(100, days_test)),
   actual_perf,
-  lambda = .3
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 100, "N" = 5)
 )
 model_perf$perf_plot 
 model_perf$params_plots
@@ -316,11 +318,13 @@ day_vec_real <- real_data[[1]]
 training_load_real <- real_data[[2]]
 obs_perf_real <- real_data[[3]]
 init_params_real <- c(262, .1, .1, 11, 11)
+mean(training_load_real)
 obs_new_alg <- new_pred_perf(
   init_params_real,
   training_load_real,
   obs_perf_real,
-  lambda = 1
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 1, "N" = 10)
 )
 
 plot_real <- obs_new_alg$perf_plot
