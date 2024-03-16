@@ -82,7 +82,6 @@ plot <- perf_tv(p_0 = 500,
         legend.position = "none")
 
 plot <- ggedit::remove_geom(plot, "line", 1)
-plot <- ggedit::remove_geom(plot, "point", 1)
 plot
 
 ```
@@ -202,7 +201,6 @@ plot_2 <- plot_2 +
         legend.position = "none")
 
 plot_2 <- remove_geom(plot_2, "line", 1)
-plot_2 <- remove_geom(plot_2, "point", 1)
 plot_2
 ```
 It is important to note that these recursion equations capture that the performance is continuous despite the parameters changing wildly
