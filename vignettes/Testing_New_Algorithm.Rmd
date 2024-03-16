@@ -1,0 +1,395 @@
+---
+title: "Testing_New_Algorithm"
+author: "Andrew Glover"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r loading package functions, message = FALSE}
+devtools::load_all() 
+```
+
+```{r, message = FALSE}
+library(tibble)
+library(ggplot2)
+library(magrittr)
+library(dplyr) 
+library(patchwork)
+# loads the functions from the package
+```
+
+```{r sanity check, warning=FALSE, eval = FALSE}
+set.seed(1)
+days_test <- 200
+training_load <- rep(100, days_test)
+perf_sim_1 <- c(500, perf_tv(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 25, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = days_test,
+          training_load = training_load)$performance
+) 
+
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 100)
+# noise function is in New_Algorithm.Rmd, it just adds gaussian noise
+
+# this is one off
+samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 30))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+}
+
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  rep(100, days_test),
+  actual_perf,
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 100, "N" = 7)
+)
+
+model_perf$perf_plot 
+model_perf$params_plots
+```
+### Testing different training loads
+
+```{r}
+set.seed(2)
+days_test_44 <- 200
+
+triangle_training_load <- function(days, multiplier = 1) {
+  if (days%%2==0) {
+    return(multiplier*c(1:(days/2), (days/2):1))
+  } else {
+    return(multiplier*c(1:floor(days/2), floor(days/2):0))
+  }
+}
+
+train_44 <- triangle_training_load(days_test_44, 3)
+length(train_44)
+perf_sim_44 <- c(500, perf_tv(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 25, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = days_test_44,
+          training_load = train_44,
+          lim = FALSE)$performance
+) 
+
+perf_sim_44 = purrr::map_dbl(perf_sim_44, noise_fn, sd = 20)
+
+# this is one off
+samp_index_44 <- c(sample(c(1:days_test_44), floor(days_test_44/4)))
+actual_perf_44 <- rep(NA, days_test_44)
+for (i in samp_index_44) {
+  actual_perf_44[[i]] = perf_sim_44[[i+1]]
+}
+
+
+model_perf_44 <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  training_load = train_44,
+  obs_perf = actual_perf_44,
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 10, "N" = 7)
+)
+
+model_perf_44$perf_plot 
+model_perf_44$params_plots
+model_perf_44$cost_vec
+
+```
+
+```{r testing every other day training}
+set.seed(2)
+days_test_986 <- 200
+
+train_986 <- rep(100, days_test_986)
+train_986 <- replace(train_986, 2*c(1:100), 0)
+
+length(train_986)
+perf_sim_986 <- c(500, perf_tv(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 25, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = days_test_986,
+          training_load = train_986,
+          lim = FALSE)$performance
+) 
+
+perf_sim_986
+perf_sim_986 = purrr::map_dbl(perf_sim_986, noise_fn, sd = 20)
+
+# this is one off
+samp_index_986 <- c(sample(c(1:days_test_986), floor(days_test_986/4)))
+actual_perf_986 <- rep(NA, days_test_986)
+for (i in samp_index_986) {
+  actual_perf_986[[i]] = perf_sim_986[[i+1]]
+}
+
+
+model_perf_986 <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  training_load = train_986,
+  obs_perf = actual_perf_986,
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 10, "N" = 7)
+)
+
+model_perf_986$perf_plot 
+model_perf_986$params_plots
+model_perf_986$cost_vec
+```
+
+
+```{r testing, eval = FALSE}
+set.seed(4)
+days_test <- 200
+perf_sim_1 <- c(500, perf_tv(p_0 = 500,
+          k_1 = 1,
+          tau_1 = 25, 
+          k_2 = 2, 
+          tau_2 = 10,
+          days = days_test,
+          training_stim = list("constant", 100))$performance
+) 
+noise_fn <- function(x,  
+                     sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
+
+# this is one off
+samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+  
+}
+
+params_matrix_1 <- as.matrix(expand.grid(p_0 = 500,
+                                  k_1 = c(1,2,3,4),
+                                  k_2 = c(2,4,6,8),
+                                  tau_1 = c(5:35),
+                                  tau_2 = c(5:35))
+)
+
+res_1 <- min_params_new(params_matrix_1,
+               training_load = c(rep(100,days_test)),
+               actual_perf,
+               c(500,1,2,25,10),
+               lambda = .4)
+res_1
+
+```
+## Algorithm Pseudo-code, not complete
+<!-- ```{=latex} -->
+<!-- \RestyleAlgo{ruled} -->
+<!-- \begin{algorithm} -->
+<!-- \caption{The Update Algorithm} -->
+<!-- \KwData{  -->
+<!-- Training Load, a vector \texttt{w} of length $n$ \\ -->
+<!-- Observed Performance, \texttt{obs perf} a vector of length $n$ \\ -->
+<!-- Initial Parameters, a vector \texttt{init params} $ = (p_0, k_1, k_2, \tau_1,\tau_2)$ \\ -->
+<!-- Settings for the Grid of values to search over, $S$ \\ -->
+<!-- Coeficent term for the Limit Cost term, a $\lambda>0$  -->
+<!-- } -->
+<!-- \KwResult{A list containing: \\ -->
+<!-- a vector of the predicted performance \\ -->
+<!-- a vector of the cost of the parameters at each of the observed performances \\ -->
+<!-- a plot of the predicted performance and the observed performance \\ -->
+<!-- plots of the parameters across time -->
+<!-- } -->
+<!-- \\ -->
+<!-- Initializations\; -->
+<!-- $\verb|curr_params| \gets \verb|init_params|$ -->
+
+
+<!-- \end{algorithm} -->
+<!-- ``` -->
+
+Let $z^{(t)}=(p_0^t, k_1^t, k_2^t, \tau_1^t, \tau_2^t)$ be the set of parameters on day $t$. For the sake of pseudo-code, set a cost function
+$$
+C(\text{Error}(1,\dots, i), w^{(t)}, w^{(t-1)}) = f(\text{Error}(1,\dots,i)) + g(w^{(t)}, w^{(t-1)})
+$$
+where $\text{Error}(1,\dots,i)$ is the $i$ dimensional vector that has the error for the $1$ through $i$th performance days, $f$ is some function that penalizes error, and the actual performance, like a scaler times SSE, MSE, or RMSE, and $g$ is a function that penalizes the distance between the two parameter sets in some way. We wish to estimate the time varying parameters through Algorithm 1 .
+
+```{=latex}
+\RestyleAlgo{ruled}
+\begin{algorithm}
+\caption{Parameter estimation algorithm}
+\KwData{ 
+Training Load, a vector \texttt{w} of length $n$ \\
+Observed Performance, \texttt{obs perf} a vector of length $n$ \\
+Initial Parameters, a vector $z^{(0)}$ \\
+Settings for the Grid of values to search over, $S$ \\
+Coeficent term for the Limit Cost term, a $\lambda>0$ 
+}
+\KwResult{A vector of the predicted performance}
+\For{$i=1,\hdots, n$}{
+  \eIf{\text{Observed Performance at} $i$ \text{is a number}}{
+  $G\gets \text{a grid of sets of parameters determined by some conditions}$ \\
+  $w^{(i)} = \text{argmin}_{w\in G} C(\text{Error}(1,\hdots, i-1), z, z^{(i-1)})$ \\
+  compute $P(i)$ with $w^{(i)}$
+  }{
+  compute $P(i)$ with $w^{(i-1)}$
+  }
+}
+\end{algorithm}
+```
+Include here how exactly these algorithms work, this is still a work in progress.
+
+# Testing New Algorthm on simulated data
+## basic testing
+As a sanity check, we give the algorithm the true values of the parameters
+as the initial parameters, tested aginst the the actual performance with no noise
+```{r sanity check098, warning=FALSE, eval = FALSE}
+set.seed(1)
+days_test <- 200
+perf_sim_1 <- c(500, perf_tv(p_0 = 500, k_1 = 1, tau_1 = 25, k_2 = 2, 
+          tau_2 = 10, days = days_test, 
+          training_stim = list("constant", 100))$performance
+) 
+noise_fn <- function(x,  
+                     sd){
+  x+rnorm(1, mean = 0, sd = sd)
+}
+
+# perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
+
+# this is one off
+samp_index <- c(sample(c(1:100), 30), sample(c(101:days_test), 10))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+  
+}
+
+model_perf <- new_pred_perf_1(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  lambda = 10
+)
+model_perf$perf_plot 
+model_perf$params_plots
+
+```
+This checks out. It has passed the sanity check. The algorithm gives the same 
+resutls no matter what the value of `lambda` is.
+ 
+
+## adding noise
+Running the same simulation with gaussian noise to the simulated performance, 
+with standard deviation of $20$. We will see that increasing lambda smoothes 
+out the performance curves. This first simulation is with `lambda = 0` which 
+just finds the minimum parameters with respect to SSE. 
+```{r noise simulation 1, eval = FALSE}
+set.seed(5)
+perf_sim_1 = purrr::map_dbl(perf_sim_1, noise_fn, sd = 20)
+samp_index <- c(sample(c(1:100), 50), sample(c(101:days_test), 10))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_1[[i+1]]
+}
+model_perf <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 100, "N" = 5)
+)
+model_perf$perf_plot 
+model_perf$params_plots
+```
+
+
+
+
+## More complicated simulation 
+Working on simulating a situation where the parameter change over time, but 
+the simulated perforamance level is not realistic. Right now, the algorthm 
+cannot handle this case. 
+```{r time-varying simulation 1, eval = FALSE}
+set.seed(2)
+days_test <- 500
+perf_sim_2 <- c(500, perf_tv(p_0 = 500,
+          k_1 = c(1,1,1.1),
+          tau_1 = c(15, 20, 10), 
+          k_2 = c(2, 2, 2), 
+          tau_2 = c(5,7, 20),
+          change_days = c(100, 200), 
+          days = days_test,
+          training_stim = list("constant", 100))$performance
+)
+samp_index <- c(sample(c(1:100), 10), sample(c(101:days_test), 20))
+actual_perf <- rep(NA, days_test)
+for (i in samp_index) {
+  actual_perf[[i]] = perf_sim_2[[i]]
+}
+
+plot_check <- plot_perf(actual_perf,
+                        perf_sim_2) +
+  labs(title = "Check that sampling from the simulation works")
+plot_check
+
+model_perf_2 <- new_pred_perf(
+  c(500, 1,2, 25, 10),
+  c(rep(100, days_test)),
+  actual_perf,
+  params_settings = list("type" = "alg_cost", "lambda_1" = 1, 
+                         "lambda_2" = 1, "training_level" = 100, "N" = 5)
+)
+model_perf_2$perf_plot
+model_perf_2$params_plots
+
+```
+It does a pretty bad job. This is because the algorithm, at every new data point, 
+tries to fit the best Time-*Invariant* curve. In this situation, all of the 
+Time-Invariant functions don't fit well when the parameters first change. 
+
+# Applying to Real Data
+This is a work in progress. Right now, the algorithm cannot handle this case
+This runs the 
+```{r real data 1, eval = FALSE}
+real_data <- data_2
+day_vec_real <- real_data[[1]]
+training_load_real <- real_data[[2]]
+obs_perf_real <- real_data[[3]]
+init_params_real <- c(262, .1, .1, 11, 11)
+
+init_alg_params <- optim_par(
+  init_params_real,
+  training_load_real,
+  obs_perf_real
+)
+init_alg_params
+
+obs_new_alg <- new_pred_perf(
+  init_alg_params,
+  training_load_real,
+  obs_perf_real,
+  params_settings = list("type" = "alg_cost", "lambda_1" = .1, 
+                         "lambda_2" = .05, "training_level" = 1, "N" = 3),
+  grid_settings = list("type" = "custom", "p_0" = 262,
+                       "k_1" = seq(.05, .2, length.out = 32),
+                       "k_2" = seq(.05, .2, length.out = 32),
+                       "tau_1" = seq(5, 15, length.out = 22),
+                       "tau_2" = seq(5, 15, length.out = 22)
+                       ),
+  error_settings = list("type" = "RMSE", "alpha" = .95, "window" = Inf)
+)
+
+
+obs_new_alg$perf_plot
+obs_new_alg$params_plots
+obs_new_alg$training_plot
+obs_new_alg$cost_vec
+```
+Here, it does not change because the algorithm has decided that all of the 
+options that we have told it to search over are all bad so it stuck with
+the initial estimate which is probably a good sign.
