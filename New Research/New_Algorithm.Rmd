@@ -132,6 +132,7 @@ plot_perf <- function(observed_performance,
 ```
 
 
+
 ```{r update parameters functions, purl = TRUE}
 update_cost <- function(params_i, prev_params, # these two are the only things that change each iteration
                         obs_indexes, training_load, obs_perf,
@@ -142,11 +143,7 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
                         params_settings
                         ###### pass through prev term cost thing #####
                      ) {
-  # initializations
-  ########################################
-  #### assume constant training load #####
-  ########################################
-
+  # initializations 
   params_cost_i <- param_cost_func(params_i, prev_params, params_settings)
   cuml_error <- 0
   p_0 <- params_i[[1]]
@@ -234,6 +231,53 @@ search_params_mat <- function(grid_settings) {
   params_matrix <- params_matrix[params_matrix$tau_1 > params_matrix$tau_2, ]
   params_matrix <- params_matrix[params_matrix$k_1 < params_matrix$k_2, ]
   return(params_matrix)
+}
+```
+
+
+
+```{r}
+min_params_2 <- function(prev_params, # these two could change
+                         tau_list,
+                      training_load, obs_perf, # these won't; they are data
+                      error_func, cost_error_func, param_cost_func, # these won't; they are specified by the user
+                      TE_cost_func,
+                      params_settings) {
+  N <- params_settings$N
+  lambda_1 <- params_settings$lambda_1
+  lambda_2 <- params_settings$lambda_2
+  training_level <- params_settings$training_level
+  
+  ################################################
+  ######## Making the tau matricies ##############
+  ################################################
+  
+  M <- length(tau_list)
+  tau_i_vec <- as.numeric(purrr::map(tau_list, ~exp(-1/.x)))
+  tau_i_mat <- matrix(0, nrow = M, ncol = N)
+  tau_i_sum_mat <- matrix(0, nrow = M, ncol = N)
+  tau_i_mat[, 1] <- tau_i_vec
+  tau_i_sum_mat[, 1] <- tau_i_vec
+  for (i in 2:N) {
+    tau_i_mat[, i] = tau_i_mat[, i-1] %*% tau_i_vec
+    tau_i_sum_mat[, i] = tau_i_sum_mat[, i-1] + tau_i_mat[, i]
+  }
+  
+  #################################################
+  #### Computing the training effect matrices #####
+  #################################################
+  
+  N_days <- length(training_load)
+  TE_mat = matrix(0, M, N_days)
+  TE_mat[, 1] <- tau_i_vec*training_load[[1]]
+  for (i in 2:N_days){
+    TE_mat[,i] = tau_i_vec %*% (out_matrix[, i-1] + training_load[[i]])
+  }
+  TE_mat
+  
+  
+  
+  
 }
 ```
 
