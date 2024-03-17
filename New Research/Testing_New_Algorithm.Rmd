@@ -308,6 +308,15 @@ model_perf$params_plots
 ```
 
 
+```{r}
+
+a <- c(rep(5:35))
+b <-as.numeric(purrr::map(a, ~exp(-1/.x), ))
+
+str(b)
+exp(-1/1)
+
+```
 
 
 ## More complicated simulation 
