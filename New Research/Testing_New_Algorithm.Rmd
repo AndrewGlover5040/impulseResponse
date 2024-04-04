@@ -18,6 +18,15 @@ library(patchwork)
 # loads the functions from the package
 ```
 
+
+```{r}
+
+```
+
+
+
+
+
 ```{r sanity check, warning=FALSE, eval = FALSE}
 set.seed(1)
 days_test <- 200
@@ -355,7 +364,6 @@ model_perf_2 <- new_pred_perf(
 )
 model_perf_2$perf_plot
 model_perf_2$params_plots
-
 ```
 It does a pretty bad job. This is because the algorithm, at every new data point, 
 tries to fit the best Time-*Invariant* curve. In this situation, all of the 
@@ -382,13 +390,13 @@ obs_new_alg <- new_pred_perf(
   init_alg_params,
   training_load_real,
   obs_perf_real,
-  params_settings = list("type" = "alg_cost", "lambda_1" = .1, 
-                         "lambda_2" = .05, "training_level" = 1, "N" = 3),
-  grid_settings = list("type" = "custom", "p_0" = 262,
-                       "k_1" = seq(.05, .2, length.out = 32),
-                       "k_2" = seq(.05, .2, length.out = 32),
-                       "tau_1" = seq(5, 15, length.out = 22),
-                       "tau_2" = seq(5, 15, length.out = 22)
+  params_settings = list("type" = "alg_cost_2", "lambda" = 8, 
+                         "N" = 5),
+  grid_settings = list("type" = "custom", "p_0" = init_alg_params[[1]],
+                       "k_1" = seq(.05, .3, length.out = 16),
+                       "k_2" = seq(.05, .3, length.out = 16),
+                       "tau_1" = seq(5, 15, length.out = 11),
+                       "tau_2" = seq(5, 15, length.out = 11)
                        ),
   error_settings = list("type" = "RMSE", "alpha" = .95, "window" = Inf)
 )
@@ -402,3 +410,105 @@ obs_new_alg$cost_vec
 Here, it does not change because the algorithm has decided that all of the 
 options that we have told it to search over are all bad so it stuck with
 the initial estimate which is probably a good sign.
+
+
+
+```{r real data 1, eval = FALSE}
+real_data <- data_2
+day_vec_real <- real_data[[1]]
+training_load_real <- real_data[[2]]
+obs_perf_real <- real_data[[3]]
+init_params_real <- c(262, .1, .1, 11, 11)
+
+init_alg_params <- optim_par(
+  init_params_real,
+  training_load_real,
+  obs_perf_real
+)
+init_alg_params
+
+
+
+obs_new_alg <- new_pred_perf(
+  init_alg_params,
+  training_load_real,
+  obs_perf_real,
+  params_settings = list("type" = "alg_cost", "lambda_1" = .1, 
+                         "lambda_2" = .05, "training_level" = 1, "N" = 3),
+  grid_settings = list("type" = "custom", "p_0" = init_alg_params[[1]],
+                       "k_1" = init_alg_params[[2]],
+                       "k_2" = init_alg_params[[3]],
+                       "tau_1" = init_alg_params[[4]],
+                       "tau_2" = init_alg_params[[5]]
+                       ),
+  error_settings = list("type" = "RMSE", "alpha" = 1, "window" = Inf)
+)
+
+
+obs_new_alg$perf_plot
+obs_new_alg$params_plots
+obs_new_alg$training_plot
+obs_new_alg$performance
+
+
+
+obs_new_alg$cost_vec
+
+max_cost <- max(obs_new_alg$cost_vec)
+
+grid_settings = list("type" = "custom", "p_0" = 262,
+                       "k_1" = seq(.05, .2, length.out = 32),
+                       "k_2" = seq(.05, .2, length.out = 32),
+                       "tau_1" = seq(5, 15, length.out = 22),
+                       "tau_2" = seq(5, 15, length.out = 22)
+                       )
+
+
+
+
+a <- search_params_mat(grid_settings)
+n_params <- nrow(a)
+
+local_cost_params <- function(prev_params, params_i, params_settings) {
+  training_level <- params_settings$training_level
+  N <- params_settings$N
+  cost <- 0
+  for (i in 1:N) {
+    abs(exp(-j/prev_params[[4]]-exp(-j/params_i)))
+  }
+  
+  
+}
+for (i in 1:n_params) {
+  params_i <- 
+  cost_vec <- c(rep(0, n_params))
+  cost_vec[[i]] <- params_dist(init_alg_params, as.numeric(a[i, ]), .1) +
+    
+  
+    
+}
+
+
+
+for (j in 1:N) {
+                local_cost <- local_cost + 
+                  abs(
+                    (tau_i_mat[ii, j] - coef_prev_1_vec[[j]])*P_t -
+                    (tau_i_mat[jj, j] - coef_prev_2_vec[[j]])*N_t +
+                    training_level*(
+                      k_1_i*tau_i_sum_mat[[ii, j]]  -
+                      k_1_prev*coef_prev_1_sum[[j]] -
+                      k_2_i*tau_i_sum_mat[[jj, j]]  +
+                      k_2_prev*coef_prev_2_sum[[j]]
+                      )
+                  )
+              }
+
+
+
+
+
+
+
+```
+

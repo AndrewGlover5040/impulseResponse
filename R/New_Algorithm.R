@@ -41,13 +41,14 @@ params_local_diff <- function(params, N, lambda_2) {
 }
 
 alg_param_cost_func <- function(x, y, params_settings) {
-  params_settings$training_level * (
-    params_dist(x, y, params_settings$lambda_1) +
-      abs(
-        params_local_diff(x, params_settings$N, params_settings$lambda_2) -
-          params_local_diff(y, params_settings$N, params_settings$lambda_2)
-      )
-  )
+  training_level <- params_settings$training_level
+  lambda_1 <- params_settings$lambda_1
+  N <- params_settings$N
+  training_level * (params_dist(x, y, lambda_1) +
+                      abs(
+                        params_local_diff(x, N, lambda_2) -
+                          params_local_diff(y, N, lambda_2)
+                      ))
 }
 
 alg_TE_cost_func <-
@@ -57,17 +58,49 @@ alg_TE_cost_func <-
            tau_2_i,
            tau_1_prev,
            tau_2_prev,
-           params_settings
-          ) {
-    params_settings$lambda_2 * abs((
-      exp(-params_settings$N / tau_1_i) * P_t -
-        exp(-params_settings$N / tau_2_i) * N_t
+           params_settings) {
+    N <- params_settings$N
+    lambda_2 <- params_settings$lambda_2
+    return(lambda_2 * abs((
+      exp(-N / tau_1_i) * P_t -
+        exp(-N / tau_2_i) * N_t
     ) -
       (
-        exp(-params_settings$N / tau_1_prev) * P_t -
-          exp(-params_settings$N / tau_2_prev) * N_t
-      ))
+        exp(-N / tau_1_prev) * P_t -
+          exp(-N / tau_2_prev) * N_t
+      )))
   }
+
+
+local_cost <- function(params_i, params_old_i, N, tau_i_sum_mat, lambda) {
+  cost = 0
+  for (j in 1:N) {
+    cost = cost + lambda*(
+      abs(params_i[[2]]*tau_i_sum_mat[params_i[[6]], j] - 
+                        params_old_i[[2]]*tau_i_sum_mat[params_old_i[[6]], j]) +
+      abs(params_i[[3]]*tau_i_sum_mat[params_i[[7]], j] - 
+                        params_old_i[[3]]*tau_i_sum_mat[params_old_i[[7]], j])
+    )
+  }
+  return(cost)
+}
+
+
+alg_param_cost_func_2 <- function(params_i, 
+                                  min_params_mat,
+                                  params_settings,
+                                  tau_i_sum_mat) {
+  n_obs <- nrow(min_params_mat)
+  output_vec <- c(rep(0, n_obs))
+  N <- params_settings$N 
+  lambda <- params_settings$lambda
+  for (i in 1:n_obs) {
+    output_vec[[i]] = params_dist(params_i, min_params_mat[i, ], lambda) +
+      local_cost(params_i, min_params_mat[i, ], N, tau_i_sum_mat, lambda)
+  }
+  return(output_vec)
+}
+
 
 # plotting function
 plot_perf <- function(observed_performance,
@@ -87,7 +120,6 @@ plot_perf <- function(observed_performance,
   plot
 }
 
-
 ## ----update parameters functions, purl = TRUE-----------------------------------------------------------------------------------------------
 update_cost <- function(params_i, prev_params, # these two are the only things that change each iteration
                         obs_indexes, training_load, obs_perf,
@@ -98,11 +130,7 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
                         params_settings
                         ###### pass through prev term cost thing #####
                      ) {
-  # initializations
-  ########################################
-  #### assume constant training load #####
-  ########################################
-
+  # initializations 
   params_cost_i <- param_cost_func(params_i, prev_params, params_settings)
   cuml_error <- 0
   p_0 <- params_i[[1]]
@@ -132,7 +160,7 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
     }
     j <- j + 1
     lower_index <- new_index + 1
-    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i +
+    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i
       TE_cost_func(T_1, T_2, params_i[[4]], params_i[[5]],
                    prev_params[[4]], prev_params[[5]], params_settings)
     if (cost_ij < min_cost_vec[[j]]) {
@@ -143,24 +171,112 @@ update_cost <- function(params_i, prev_params, # these two are the only things t
   return(list("params" = min_params_mat, "cost" = min_cost_vec))
 }
 
-min_params <- function(params_matrix, prev_params, # these two could change
-                      training_load, obs_perf, # these won't; they are data
-                      alpha, window, # these won't; they are specified by the user
-                      error_func, cost_error_func, param_cost_func, # these won't; they are specified by the user
-                      TE_cost_func,
-                      params_settings) {
+
+
+## ----purl = TRUE----------------------------------------------------------------------------------------------------------------------------
+
+
+update_cost_2 <- function(params_i, obs_indexes, training_load, obs_perf,
+                          error_func, cost_error_func, param_cost_func, 
+                          alpha, window, min_cost_vec, min_params_mat,
+                          params_settings, tau_i_sum_mat, TE_mat
+                 ) {
+  # initializations 
+  params_cost_i_vec <- param_cost_func(params_i, min_params_mat, params_settings, tau_i_sum_mat)
+  cuml_error <- 0
+  T_1 <- 0
+  T_2 <- 0
+  j <- 0
+  if (window > 0) { # 0 is the case where no window is specified
+    error_tmp <- c(rep(0, window))
+  }
+  
+  for (new_index in obs_indexes) {
+    error_i <- error_func(params_i[[1]] + params_i[[2]]*TE_mat[params_i[[6]], new_index] 
+                          - params_i[[3]]*TE_mat[params_i[[7]], new_index] - obs_perf[[new_index]])
+    cuml_error <- alpha*cuml_error + error_i 
+    if(window > 0) {
+      cuml_error <- cuml_error - alpha^(window)*error_tmp[[j%%window + 1]]
+      error_tmp[[j%%window + 1]] <- error_i 
+    }
+    j <- j + 1
+    cost_ij <- cost_error_func(cuml_error, j) + params_cost_i_vec[[j]]
+    if (cost_ij < min_cost_vec[[j]]) {
+      min_cost_vec[[j]] <- cost_ij
+      min_params_mat[j, ] <- params_i # includes indexes for taus
+    }
+  }
+  return(list("params" = min_params_mat, "cost" = min_cost_vec))
+}
+###################
+## make sure tau_list works
+###################
+
+
+min_params <- function(params_matrix, init_params, # these two could change
+                       training_load, obs_perf, # these won't; they are data
+                       alpha, window, # these won't; they are specified by the user
+                       error_func, cost_error_func, param_cost_func, # these won't; they are specified by the user
+                       TE_cost_func, params_settings, grid_settings, 
+                       num_update_cost) {
   obs_indexes <- which(!is.na(obs_perf))
   n <- length(obs_indexes)
   min_cost_vec <- c(rep(Inf, n))
-  min_params_mat <- matrix(0, nrow = n, ncol = 5) 
+  tau_list <- sort(unique(c(grid_settings$tau_1, grid_settings$tau_2)))
+  
+  M <- length(tau_list) + 2 # +2 for the initial parameter tau values, makes sense in the next chunk #
+  init_params = c(init_params, M-1, M)
+  min_params_mat <- matrix(init_params, nrow = n, ncol = 7, byrow = TRUE) 
+  
+  ##############################################################
+  #### Precomputing some values for computational efficency ####
+  ##############################################################
+  
+  N <- params_settings$N
+  tau_i_vec <- c(as.numeric(purrr::map(tau_list, ~exp(-1/.x))),
+                 exp(-1/init_params[[4]]),
+                 exp(-1/init_params[[5]])
+  )
+  tau_i_sum_mat <- matrix(0, nrow = M, ncol = N)
+  tau_i_sum_mat[, 1] <- tau_i_vec
+  for (i in 2:N) {
+    tau_i_sum_mat[, i] = tau_i_sum_mat[, i-1] + tau_i_vec^i
+  }
+  
+  
+  N_days <- length(training_load)
+  #!!!!!!!!!! maybe a problem here !!!!!!!!!!!!
+  TE_mat <- matrix(0, nrow = M, ncol = N_days)
+  TE_mat[, 1] <- tau_i_vec*training_load[[1]]
+  for (i in 2:N_days){
+    TE_mat[, i] = tau_i_vec*(TE_mat[, i-1] + training_load[[i]])
+  }
+  
+  #############################
+  #### Doing the algorithm ####
+  #############################
+  
   for (i in 1:nrow(params_matrix)) {
-    params_i <- as.numeric(params_matrix[i, ])
-    res <- update_cost(params_i, prev_params, obs_indexes, training_load, obs_perf,
-                       error_func, cost_error_func, param_cost_func,
-                       TE_cost_func,
-                       alpha, window,
-                       min_cost_vec, min_params_mat,
-                       params_settings) 
+    
+    if (num_update_cost == 1) {
+       res <- update_cost(as.numeric(params_matrix[i, ]), prev_params, obs_indexes, training_load, obs_perf,
+                         error_func, cost_error_func, param_cost_func,
+                         TE_cost_func,
+                         alpha, window,
+                         min_cost_vec, min_params_mat,
+                         params_settings
+                         ) 
+    }
+    
+    if (num_update_cost == 2) {
+      
+      res <- update_cost_2(as.numeric(params_matrix[i, ]), obs_indexes,
+                           training_load, obs_perf,
+                           error_func, cost_error_func, param_cost_func,
+                           alpha, window, min_cost_vec, min_params_mat,
+                           params_settings,
+                           tau_i_sum_mat, TE_mat) 
+    }
     min_cost_vec <- res$cost
     min_params_mat <- res$params
   }
@@ -168,8 +284,8 @@ min_params <- function(params_matrix, prev_params, # these two could change
 }
 
 # this function creates (or calls, we will see) the parameter matrix and applies 
-# it to the previous function. makes things tider in the algorithm funciton
-search_params_mat <- function(grid_settings) {
+# it to the previous function. makes things tidier in the algorithm funciton
+search_params_mat <- function(grid_settings, init_params, num_update_cost) {
   bounds_type <- grid_settings$type
   if(bounds_type == "test") {
     params_matrix <- expand.grid(p_0 = 500,
@@ -178,7 +294,7 @@ search_params_mat <- function(grid_settings) {
                                   tau_1 = c(5:35),
                                   tau_2 = c(5:35))
   }
-  if(bounds_type == "custom") {
+  if(bounds_type == "custom" && num_update_cost == 1) {
     params_matrix <- expand.grid(p_0 = grid_settings$p_0,
                               k_1 = grid_settings$k_1,
                               k_2 = grid_settings$k_2,
@@ -186,11 +302,39 @@ search_params_mat <- function(grid_settings) {
                               tau_2 = grid_settings$tau_2)
   }
   
+  if(bounds_type == "custom" && num_update_cost == 2) {
+    params_matrix <- expand.grid(p_0 = grid_settings$p_0,
+                              k_1 = grid_settings$k_1,
+                              k_2 = grid_settings$k_2,
+                              tau_1 = grid_settings$tau_1,
+                              tau_2 = grid_settings$tau_2)
+    
+    tau_list <- sort(unique(c(grid_settings$tau_1, grid_settings$tau_2)))
+    
+    tau_1_index <- c(rep(0, nrow(params_matrix)))
+    tau_2_index <- c(rep(0, nrow(params_matrix)))
+    for (i in 1:nrow(params_matrix)) {
+      tau_1_index[[i]] <- which(tau_list == params_matrix$tau_1[[i]])
+      tau_2_index[[i]] <- which(tau_list == params_matrix$tau_2[[i]])
+    }
+    params_matrix <- cbind(params_matrix, tau_1_index)
+    params_matrix <- cbind(params_matrix, tau_2_index)
+    
+    # special case for initial parameters
+    params_matrix <- rbind(params_matrix, c(init_params, 
+                                            length(tau_list) + 1,
+                                            length(tau_list) + 2))
+  }
+  
+  init_params <- init_params
   
   params_matrix <- params_matrix[params_matrix$tau_1 > params_matrix$tau_2, ]
   params_matrix <- params_matrix[params_matrix$k_1 < params_matrix$k_2, ]
   return(params_matrix)
 }
+
+
+
 
 
 ## ----New algorithm, purl = TRUE-------------------------------------------------------------------------------------------------------------
@@ -201,12 +345,11 @@ new_pred_perf <- function(init_params,
                           params_settings,
                           grid_settings = list("type" = "test")) {
   
-  curr_params <- init_params 
-  ####
+  curr_params <- c(init_params, 0,0)
   # curr_params take form c(p_0, k_1, k_2, tau_1, tau_2)
   ###
-  matrix_params <- matrix(0, nrow = length(training_load), ncol = 5)
-  colnames(matrix_params) <- c("p_0", "k_1", "k_2", "tau_1", "tau_2")
+  matrix_params <- matrix(0, nrow = length(training_load), ncol = 7)
+  colnames(matrix_params) <- c("p_0", "k_1", "k_2", "tau_1", "tau_2", "index_1", "index_2")
   days <- length(training_load)
   perf_out <- c(rep(curr_params[[1]], days + 1)) 
   
@@ -247,6 +390,12 @@ new_pred_perf <- function(init_params,
     
     param_cost_func <- alg_param_cost_func
     TE_cost_func <- alg_TE_cost_func
+    num_update_cost <- 1
+  }
+  
+  if (params_settings$type == "alg_cost_2") {
+    param_cost_func <- alg_param_cost_func_2
+    num_update_cost <- 2
   }
   
   #### checking inputs ####
@@ -275,13 +424,14 @@ new_pred_perf <- function(init_params,
   ########### Doing the Algorithm ##############
   ############################################## 
   
-  res_1 <- min_params(search_params_mat(grid_settings),
+  res_1 <- min_params(search_params_mat(grid_settings, init_params, num_update_cost),
                       init_params, training_load, obs_perf,
                       alpha, window,  
                       error_func, cost_error_func, param_cost_func,
-                      TE_cost_func, params_settings)
-  opt_params_mat <- res_1$opt_params
-  cost_vec <- res_1$cost
+                      TE_cost_func, params_settings, grid_settings,
+                      num_update_cost)
+  opt_params_mat <- res_1$opt_params 
+  cost_vec <- res_1$cost 
 
   ##############################################
   ######## Computing The performance ###########

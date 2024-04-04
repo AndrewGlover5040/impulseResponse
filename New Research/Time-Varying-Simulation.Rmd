@@ -361,7 +361,7 @@ perf_tv(p_0 = 500,
           tau_2 = c(5,10, 15),
           change_days = c(100, 200), 
           days = 500,
-          training_stim = list("constant", 100))$plot
+          training_load = rep(100, 500))$plot
 ```
 
 
